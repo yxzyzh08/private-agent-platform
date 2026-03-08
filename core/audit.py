@@ -5,11 +5,12 @@ Records all tool calls with sanitized parameters.
 
 from __future__ import annotations
 
-import logging
 import re
 from datetime import datetime, timezone
 
-logger = logging.getLogger(__name__)
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Patterns to detect sensitive data for redaction
 _SENSITIVE_PATTERNS = [

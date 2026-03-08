@@ -17,6 +17,8 @@
 | **最新 Tag** | — |
 | **阻塞项** | Task 1.19/1.20 需 Owner 部署验证；Task 1.25 需 Docker 环境 |
 
+> Task 1.21（rate_limiter）和 Task 1.22（audit）已确认实现完成，代码在上次 Session 中提前完成，此次补标 `[x]`。
+
 ### Resume Instructions
 
 > Claude Code 在 `/clear` 后读取到这里时，按以下步骤恢复：
@@ -39,7 +41,7 @@
 
 | Phase | 目标 | 状态 | 进度 | 详细计划 |
 |-------|------|------|------|---------|
-| Phase 1A | 平台骨架 + Web UI 开发工具 | 🔵 进行中 | 24/28 | [phase-1a.md](phases/phase-1a.md) |
+| Phase 1A | 平台骨架 + Web UI 开发工具 | 🔵 进行中 | 26/28 | [phase-1a.md](phases/phase-1a.md) |
 | Phase 1B | GitHub Issue 自动化 | ⚪ 未开始 | 0/11 | [phase-1b.md](phases/phase-1b.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
@@ -58,6 +60,7 @@
 | Session 3 完成 | 108 | 108 | Task 1.11~1.17 平台核心 + 渠道基类 |
 | Session 4+5 完成 | 136 | 136 | Task 1.18~1.22 cui POC + 日志/限流/审计 |
 | Session 6 完成 | 144 | 144 | Task 1.23~1.24 main.py + Docker 配置 |
+| Session 7 确认 | 144 | 144 | Task 1.21~1.22 rate_limiter + audit 补标完成；修复 audit.py 日志规范 |
 
 ---
 

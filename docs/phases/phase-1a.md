@@ -587,15 +587,15 @@ uv run pytest tests/ --co  # 验证 fixtures 可发现
 
 ### Task 1.21: 实现速率限制
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.5 (errors.py)
 **产出文件**: `core/rate_limiter.py`
 
 **验收标准**:
-- [ ] 基于滑动窗口的速率限制（per-user 粒度，与需求文档"单用户每分钟最多 10 条消息"一致）
-- [ ] 限制阈值从 `constants.py` 读取（RATE_LIMIT_PER_MINUTE = 10）
-- [ ] 超出限制抛出 `RateLimitError`
-- [ ] 不同用户独立计数（user_id 作为限流 key）
+- [x] 基于滑动窗口的速率限制（per-user 粒度，与需求文档"单用户每分钟最多 10 条消息"一致）
+- [x] 限制阈值从 `constants.py` 读取（RATE_LIMIT_PER_MINUTE = 10）
+- [x] 超出限制抛出 `RateLimitError`
+- [x] 不同用户独立计数（user_id 作为限流 key）
 
 **测试命令**:
 ```bash
@@ -606,15 +606,15 @@ uv run pytest tests/unit/test_core.py -v -k "test_rate_limiter"
 
 ### Task 1.22: 实现审计日志 + 日志脱敏
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.5
 **产出文件**: `core/audit.py`
 
 **验收标准**:
-- [ ] 审计日志包含：时间、智能体 ID、工具名、参数摘要、结果状态
-- [ ] 敏感信息自动脱敏（正则匹配 API Key、Token 等模式）
-- [ ] 脱敏格式：`sk-ant-...****`（保留前缀 + 后 4 位）
-- [ ] 日志输出到标准 logging + 可选文件
+- [x] 审计日志包含：时间、智能体 ID、工具名、参数摘要、结果状态
+- [x] 敏感信息自动脱敏（正则匹配 API Key、Token 等模式）
+- [x] 脱敏格式：`sk-ant-...****`（保留前缀 + 后 4 位）
+- [x] 日志输出到标准 logging + 可选文件
 
 **测试命令**:
 ```bash
