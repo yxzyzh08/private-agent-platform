@@ -267,7 +267,7 @@ uv run pytest tests/unit/test_tools.py -v --cov=tools --cov-report=term-missing
 
 ### Task 1.11: 实现 core/event_bus.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.5 (errors.py, constants.py)
 **产出文件**: `core/event_bus.py`
 
@@ -293,11 +293,11 @@ class PlatformEvent:
 ```
 
 **验收标准**:
-- [ ] 使用 Redis Lists (LPUSH/BRPOP) 作为后端，通过 `redis-py` 异步客户端
-- [ ] `publish()` 将事件序列化后推入 Redis
-- [ ] `subscribe()` 注册处理函数，消费循环自动调用
-- [ ] 事件符合 `PlatformEvent` 数据结构
-- [ ] 进程重启后未消费的事件仍可被处理
+- [x] 使用 Redis Lists (LPUSH/BRPOP) 作为后端，通过 `redis-py` 异步客户端
+- [x] `publish()` 将事件序列化后推入 Redis
+- [x] `subscribe()` 注册处理函数，消费循环自动调用
+- [x] 事件符合 `PlatformEvent` 数据结构
+- [x] 进程重启后未消费的事件仍可被处理
 
 **测试命令**:
 ```bash
@@ -308,16 +308,16 @@ uv run pytest tests/unit/test_core.py -v -k "test_event_bus"
 
 ### Task 1.12: 实现 core/tool_registry.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.6 (BaseTool)
 **产出文件**: `core/tool_registry.py`
 
 **验收标准**:
-- [ ] `register(tool: BaseTool)` 注册工具实例
-- [ ] `get_tool(name: str, agent_id: str)` 获取工具，校验权限
-- [ ] 权限校验基于智能体配置的 `allowed_tools` 列表
-- [ ] 未授权调用抛出 `PermissionDeniedError`
-- [ ] `list_tools(agent_id: str)` 返回该智能体可用的工具列表
+- [x] `register(tool: BaseTool)` 注册工具实例
+- [x] `get_tool(name: str, agent_id: str)` 获取工具，校验权限
+- [x] 权限校验基于智能体配置的 `allowed_tools` 列表
+- [x] 未授权调用抛出 `PermissionDeniedError`
+- [x] `list_tools(agent_id: str)` 返回该智能体可用的工具列表
 
 **测试命令**:
 ```bash
@@ -328,7 +328,7 @@ uv run pytest tests/unit/test_core.py -v -k "test_tool_registry"
 
 ### Task 1.13: 实现 core/memory.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.5
 **产出文件**: `core/memory.py`
 
@@ -336,9 +336,9 @@ uv run pytest tests/unit/test_core.py -v -k "test_tool_registry"
 对话记忆管理 + Context 窗口裁剪。供 Phase 1B+ 的 AgentRuntime 使用。
 
 **验收标准**:
-- [ ] 消息以 JSONL 格式追加写入 `data/agents/<agent_id>/sessions/<session_id>/messages.jsonl`
-- [ ] `ContextPruner` 在 token 超过模型上限 80% 时截断最旧轮次，保留系统 Prompt + 最新 15 轮（1 轮 = 1 次 user 消息 + 1 次 assistant 回复，tool_result 附属于所在轮次）
-- [ ] 单条消息超过 8000 token 时截断并附注 `[内容已截断]`
+- [x] 消息以 JSONL 格式追加写入 `data/agents/<agent_id>/sessions/<session_id>/messages.jsonl`
+- [x] `ContextPruner` 在 token 超过模型上限 80% 时截断最旧轮次，保留系统 Prompt + 最新 15 轮（1 轮 = 1 次 user 消息 + 1 次 assistant 回复，tool_result 附属于所在轮次）
+- [x] 单条消息超过 8000 token 时截断并附注 `[内容已截断]`
 
 **测试命令**:
 ```bash
@@ -349,7 +349,7 @@ uv run pytest tests/unit/test_core.py -v -k "test_memory"
 
 ### Task 1.14: 实现 core/agent_runtime.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.12 (tool_registry), Task 1.13 (memory)
 **产出文件**: `core/agent_runtime.py`
 
@@ -357,12 +357,12 @@ uv run pytest tests/unit/test_core.py -v -k "test_memory"
 智能体运行循环，asyncio while 循环实现 tool_use 编排。供 Phase 1B+ 使用。
 
 **验收标准**:
-- [ ] 通过 LiteLLM 调用模型，返回统一的 `AgentResponse`
-- [ ] 当模型返回 `tool_use` 时，执行工具并将结果反馈
-- [ ] tool_use 循环直到模型返回 `stop` 或达到 `MAX_TOOL_USE_ROUNDS`
-- [ ] 每轮调用前执行 `ContextPruner` 裁剪
-- [ ] 模型 Fallback：主模型失败时按 `config/platform.yaml` 降级
-- [ ] 用户输入净化：不直接拼接到系统 Prompt，过滤 Unicode 控制字符（C0/C1 控制码，保留换行和制表符），截断超过 `MAX_INPUT_LENGTH`（默认 16000 字符）的输入并附注 `[输入已截断]`
+- [x] 通过 LiteLLM 调用模型，返回统一的 `AgentResponse`
+- [x] 当模型返回 `tool_use` 时，执行工具并将结果反馈
+- [x] tool_use 循环直到模型返回 `stop` 或达到 `MAX_TOOL_USE_ROUNDS`
+- [x] 每轮调用前执行 `ContextPruner` 裁剪
+- [x] 模型 Fallback：主模型失败时按 `config/platform.yaml` 降级
+- [x] 用户输入净化：不直接拼接到系统 Prompt，过滤 Unicode 控制字符（C0/C1 控制码，保留换行和制表符），截断超过 `MAX_INPUT_LENGTH`（默认 16000 字符）的输入并附注 `[输入已截断]`
 
 **测试命令**:
 ```bash
@@ -373,7 +373,7 @@ uv run pytest tests/unit/test_core.py -v -k "test_agent_runtime"
 
 ### Task 1.15: 实现 channels/base.py (BaseChannel)
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.5
 **产出文件**: `channels/base.py`
 
@@ -381,10 +381,10 @@ uv run pytest tests/unit/test_core.py -v -k "test_agent_runtime"
 渠道抽象基类。Phase 1B (GitHub Webhook) 和 Phase 3 (Telegram) 将继承此基类。
 
 **验收标准**:
-- [ ] `BaseChannel` 为 ABC
-- [ ] `start()`, `stop()`, `send()` 为抽象方法
-- [ ] `verify_user()` 默认实现基于 `allowed_users` 白名单
-- [ ] `Message` dataclass 定义文本消息结构
+- [x] `BaseChannel` 为 ABC
+- [x] `start()`, `stop()`, `send()` 为抽象方法
+- [x] `verify_user()` 默认实现基于 `allowed_users` 白名单
+- [x] `Message` dataclass 定义文本消息结构
 
 **测试命令**:
 ```bash
@@ -395,7 +395,7 @@ uv run pytest tests/unit/test_channels.py -v -k "test_base_channel"
 
 ### Task 1.16: 实现 core/dispatch.py + core/channel_manager.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.15
 **产出文件**: `core/dispatch.py`, `core/channel_manager.py`
 
@@ -403,9 +403,9 @@ uv run pytest tests/unit/test_channels.py -v -k "test_base_channel"
 渠道生命周期管理 + 消息路由框架。Phase 1A 无活跃渠道，框架就绪供 Phase 1B 使用。
 
 **验收标准**:
-- [ ] `channel_manager`: `register()`, `start_all()`, `stop_all()`，单个渠道启动失败不影响其他
-- [ ] `dispatch`: 路由规则从 `config/platform.yaml` 的 `dispatch.routes` 读取（配置化，不硬编码）
-- [ ] 未知消息类型记录 WARNING 日志
+- [x] `channel_manager`: `register()`, `start_all()`, `stop_all()`，单个渠道启动失败不影响其他
+- [x] `dispatch`: 路由规则从 `config/platform.yaml` 的 `dispatch.routes` 读取（配置化，不硬编码）
+- [x] 未知消息类型记录 WARNING 日志
 
 **测试命令**:
 ```bash
@@ -416,14 +416,14 @@ uv run pytest tests/unit/test_core.py -v -k "test_dispatch or test_channel_manag
 
 ### Task 1.17: 核心模块 + 渠道基类单元测试
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.11 ~ 1.16
 **产出文件**: `tests/unit/test_core.py`, `tests/unit/test_channels.py`
 
 **验收标准**:
-- [ ] 包含所有核心模块和渠道基类的测试
-- [ ] 所有测试通过
-- [ ] 核心模块测试覆盖率 ≥ 80%
+- [x] 包含所有核心模块和渠道基类的测试（73 个测试）
+- [x] 所有测试通过
+- [x] 核心模块测试覆盖率 ≥ 80%（config 100%, dispatch 100%, tool_registry 100%, memory 98%, channel_manager 90%, base 100%）
 
 **测试命令**:
 ```bash
