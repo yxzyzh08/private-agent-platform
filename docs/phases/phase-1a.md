@@ -138,7 +138,7 @@ python -c "from core.errors import PlatformError, PermissionDeniedError; from co
 
 ### Task 1.6: 创建 tools/base.py (BaseTool)
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.5 (errors.py)
 **产出文件**: `tools/base.py`
 
@@ -167,11 +167,11 @@ class ToolResult:
 ```
 
 **验收标准**:
-- [ ] `BaseTool` 为 ABC，`execute()` 为抽象方法
-- [ ] `validate_input()` 使用 `jsonschema` 库校验参数
-- [ ] 校验失败抛出 `ValidationError`
-- [ ] `ToolResult` dataclass 定义 `success`, `data`, `error` 字段
-- [ ] `cleanup()` 默认实现为空操作，子类可覆写
+- [x] `BaseTool` 为 ABC，`execute()` 为抽象方法
+- [x] `validate_input()` 使用 `jsonschema` 库校验参数
+- [x] 校验失败抛出 `ValidationError`
+- [x] `ToolResult` dataclass 定义 `success`, `data`, `error` 字段
+- [x] `cleanup()` 默认实现为空操作，子类可覆写
 
 **测试命令**:
 ```bash
@@ -182,7 +182,7 @@ uv run pytest tests/unit/test_tools.py -v -k "test_base_tool"
 
 ### Task 1.7: 实现 tools/claude_code_cli.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.6 (BaseTool)
 **产出文件**: `tools/claude_code_cli.py`
 
@@ -190,11 +190,11 @@ uv run pytest tests/unit/test_tools.py -v -k "test_base_tool"
 封装 Claude Code CLI 为异步子进程工具。Phase 1A 中 cui 直接调用 CLI，此工具供 Phase 1B GitHub Issue 自动化使用。
 
 **验收标准**:
-- [ ] 继承 BaseTool，validate_input() 校验必填参数
-- [ ] 启动 claude 子进程，传入 `--output-format json`、`--permission-mode dontAsk`
-- [ ] 子进程超时（默认 10 分钟）自动终止
-- [ ] 子进程运行超过安全上限时终止并返回错误（防止无限循环）
-- [ ] 环境变量隔离：不传递 `ANTHROPIC_API_KEY` 到子进程
+- [x] 继承 BaseTool，validate_input() 校验必填参数
+- [x] 启动 claude 子进程，传入 `--output-format json`、`--permission-mode dontAsk`
+- [x] 子进程超时（默认 10 分钟）自动终止
+- [x] 子进程运行超过安全上限时终止并返回错误（防止无限循环）
+- [x] 环境变量隔离：不传递 `ANTHROPIC_API_KEY` 到子进程
 
 **测试命令**:
 ```bash
@@ -205,15 +205,15 @@ uv run pytest tests/unit/test_tools.py -v -k "test_claude_code_cli"
 
 ### Task 1.8: 实现 tools/git_tool.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.6 (BaseTool)
 **产出文件**: `tools/git_tool.py`
 
 **验收标准**:
-- [ ] 继承 BaseTool
-- [ ] 支持操作：`clone`, `checkout`, `commit`, `push`, `create_pr`
-- [ ] GitHub API 操作通过 PyGitHub（`GITHUB_TOKEN` 从环境变量读取）
-- [ ] PR 创建返回 PR URL
+- [x] 继承 BaseTool
+- [x] 支持操作：`clone`, `checkout`, `commit`, `push`, `create_pr`
+- [x] GitHub API 操作通过 PyGitHub（`GITHUB_TOKEN` 从环境变量读取）
+- [x] PR 创建返回 PR URL
 
 **测试命令**:
 ```bash
@@ -224,7 +224,7 @@ uv run pytest tests/unit/test_tools.py -v -k "test_git_tool"
 
 ### Task 1.9: 实现 tools/event_bus_tool.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.6 (BaseTool), Task 1.11 (event_bus.py)
 **产出文件**: `tools/event_bus_tool.py`
 
@@ -232,11 +232,11 @@ uv run pytest tests/unit/test_tools.py -v -k "test_git_tool"
 封装事件总线操作为工具。注意依赖方向：`tools/` 可依赖 `core/` 的接口（`core/ ← tools/` 是允许的方向），event_bus_tool 通过构造函数注入 `EventBus` 实例，不直接 import core 模块的内部实现。
 
 **验收标准**:
-- [ ] 继承 BaseTool
-- [ ] 通过构造函数注入 `EventBus` 实例（依赖注入，不在模块顶层 import core.event_bus）
-- [ ] 支持 `publish` 和 `subscribe` 操作
-- [ ] `publish` 需要 `event_type` 和 `payload` 参数
-- [ ] 事件符合 `PlatformEvent` schema
+- [x] 继承 BaseTool
+- [x] 通过构造函数注入 `EventBus` 实例（依赖注入，不在模块顶层 import core.event_bus）
+- [x] 支持 `publish` 和 `subscribe` 操作
+- [x] `publish` 需要 `event_type` 和 `payload` 参数
+- [x] 事件符合 `PlatformEvent` schema
 
 **测试命令**:
 ```bash
@@ -247,14 +247,14 @@ uv run pytest tests/unit/test_tools.py -v -k "test_event_bus_tool"
 
 ### Task 1.10: 工具层单元测试
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.6 ~ 1.9
 **产出文件**: `tests/unit/test_tools.py`
 
 **验收标准**:
-- [ ] 包含所有工具的测试
-- [ ] 所有测试通过
-- [ ] 工具层测试覆盖率 ≥ 80%
+- [x] 包含所有工具的测试
+- [x] 所有测试通过（35 个测试全部通过）
+- [x] 工具层测试覆盖率 ≥ 80%（base 100%, cli 90%, event_bus 96%, git 62% — 整体 >80%）
 
 **测试命令**:
 ```bash
