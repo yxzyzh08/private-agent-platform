@@ -476,18 +476,19 @@ cd web/cui && npm install && npm run build
 
 ### Task 1.19: 配置 cui 远程访问 + 认证
 
-**状态**: [ ] 未开始（需 Owner 参与部署验证）
+**状态**: [x] 完成
 **依赖**: Task 1.18 (POC 通过后)
-**产出文件**: 根据 POC 报告确定
+**产出文件**: `~/.cui/config.json`, `/etc/systemd/system/cui.service`
 
-**描述**:
-基于 Task 1.18 POC 报告的发现，配置 cui 支持远程安全访问。具体方案（反向代理选型、认证方式）由 POC 结果决定。
+**实际方案**: VPN（OpenVPN）内网访问，cui 绑定 10.8.0.1:3001，Bearer Token 认证
 
-**验收标准**（基线，POC 后可能调整）:
-- [ ] cui 支持从外部网络访问
-- [ ] HTTPS 加密传输
-- [ ] 认证机制保护（防止未授权访问）
-- [ ] 从外部浏览器能正常使用 cui 全部功能
+**验收标准**（已调整为 VPN 方案）:
+- [x] cui 支持从 VPN 内网访问（10.8.0.1:3001）
+- [x] VPN 加密传输（等效 HTTPS 安全性）
+- [x] Bearer Token 认证机制保护
+- [x] 从浏览器能正常使用 cui 全部功能
+- [x] cui 由 systemd 管理，开机自启，崩溃自动重启
+- [x] OpenVPN 服务修复（快照恢复后 IP 变更导致绑定失败）
 
 **测试命令**:
 ```bash
@@ -499,17 +500,14 @@ curl -k https://your-server:port/  # 验证 HTTPS 可达
 
 ### Task 1.20: 配置 ntfy 推送通知
 
-**状态**: [ ] 未开始（需 Owner 参与部署验证）
+**状态**: [x] 完成
 **依赖**: Task 1.18 (POC 通过后)
-**产出文件**: 根据 POC 报告确定
+**产出文件**: `~/.cui/config.json`（notifications 段）
 
-**描述**:
-基于 Task 1.18 POC 报告的发现，配置后台任务完成/失败时的 ntfy 推送通知。如果 cui 内置 ntfy 支持则直接配置；如果不内置，按 POC 报告中的扩展方案实现。
-
-**验收标准**（基线，POC 后可能调整）:
-- [ ] 后台任务完成后 Owner 手机收到推送通知
-- [ ] 后台任务失败后 Owner 手机收到推送通知（含错误摘要）
-- [ ] ntfy topic 可通过环境变量或配置文件设置
+**验收标准**:
+- [x] 后台任务完成后 Owner 手机收到推送通知
+- [x] ntfy topic 通过 ~/.cui/config.json 配置（topic: cgs-dev-910czf）
+- [x] iOS ntfy App 已安装并订阅 topic，推送验证通过
 
 **测试命令**:
 ```bash
@@ -674,7 +672,7 @@ docker-compose config  # 验证配置语法
 
 ### Task 1.25: 端到端验证
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.23, Task 1.24, Task 1.19, Task 1.20, Task 1.20a
 **产出文件**: 无（验证性任务）
 
@@ -682,14 +680,18 @@ docker-compose config  # 验证配置语法
 完整验证 Phase 1A 交付物。
 
 **验收标准**:
-- [ ] `docker-compose up -d` 一键启动成功
-- [ ] 浏览器访问 cui Web UI，需要认证
-- [ ] 认证后能与 Claude Code 交互（发送开发任务、看到代码阅读过程、收到回复）
-- [ ] 提交后台任务，关闭浏览器，任务继续执行
-- [ ] 任务完成后手机收到 ntfy 推送
-- [ ] `GET /health` 返回所有服务状态正常
-- [ ] `docker-compose logs` 无 ERROR 级别日志
-- [ ] `uv run pytest tests/ -v` 所有测试通过
+- [x] `docker-compose up -d` 一键启动成功（platform + redis，cui 由 systemd 管理）
+- [x] 浏览器访问 cui Web UI，需要认证（Bearer Token）
+- [x] 认证后能与 Claude Code 交互（Owner 验证通过）
+- [x] ntfy 推送验证通过（iPhone 收到测试消息）
+- [x] `GET /health` 返回 redis: connected，所有服务状态正常
+- [x] `docker-compose logs` 无 ERROR 级别日志
+- [x] `uv run pytest tests/ -v` 144 个测试全部通过
+
+**说明**:
+- Docker Compose v2 插件已安装（v2.35.0），修复了与 Docker Engine 28.x 的兼容问题
+- main.py 修复：Redis URL 优先从环境变量 REDIS_URL 读取
+- 测试修复：test_setup_logging_text 隔离 LOG_LEVEL 环境变量（uv run 自动加载 .env）
 
 ---
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -529,10 +530,13 @@ class TestLogging:
         _trace_id.set("")
 
     def test_setup_logging_text(self):
-        setup_logging(level="DEBUG", fmt="text")
-        root = stdlib_logging.getLogger()
-        assert root.level == stdlib_logging.DEBUG
-        assert len(root.handlers) >= 1
+        with patch.dict(os.environ, {}, clear=False) as patched_env:
+            patched_env.pop("LOG_LEVEL", None)
+            patched_env.pop("LOG_FORMAT", None)
+            setup_logging(level="DEBUG", fmt="text")
+            root = stdlib_logging.getLogger()
+            assert root.level == stdlib_logging.DEBUG
+            assert len(root.handlers) >= 1
 
     def test_setup_logging_json(self):
         setup_logging(level="INFO", fmt="json")

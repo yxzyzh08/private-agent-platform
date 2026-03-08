@@ -6,6 +6,7 @@ provides health endpoint, and handles graceful shutdown.
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 import redis.asyncio as aioredis
@@ -57,7 +58,10 @@ def create_app() -> FastAPI:
     )
 
     # Core components
-    redis_url = config.get("storage", {}).get("redis_url", "redis://localhost:6379/0")
+    redis_url = (
+        os.environ.get("REDIS_URL")
+        or config.get("storage", {}).get("redis_url", "redis://localhost:6379/0")
+    )
     event_bus = EventBus(redis_url=redis_url)
     tool_registry = ToolRegistry()
     channel_manager = ChannelManager()

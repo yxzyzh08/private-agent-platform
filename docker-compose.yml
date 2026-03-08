@@ -23,6 +23,9 @@ services:
       retries: 3
 
   cui:
+    # cui 由 systemd 服务管理（VPN 访问 + ntfy 推送已配置）
+    # 如需 Docker 模式启动: docker-compose --profile docker-cui up -d
+    profiles: ["docker-cui"]
     build:
       context: ./web/cui
       dockerfile: Dockerfile
