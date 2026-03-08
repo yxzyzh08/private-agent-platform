@@ -501,3 +501,256 @@ class TestChannelManager:
         self.manager.register(ch2)
         await self.manager.start_all()
         ch2.start.assert_called_once()  # ch2 still started
+
+
+# --- core/logging.py tests ---
+
+
+import logging as stdlib_logging
+import time
+
+from core.logging import (
+    JsonFormatter,
+    TextFormatter,
+    TraceIdFilter,
+    get_logger,
+    get_trace_id,
+    log_duration,
+    set_trace_id,
+    setup_logging,
+)
+
+
+class TestLogging:
+    def setup_method(self):
+        # Reset trace_id between tests
+        from core.logging import _trace_id
+
+        _trace_id.set("")
+
+    def test_setup_logging_text(self):
+        setup_logging(level="DEBUG", fmt="text")
+        root = stdlib_logging.getLogger()
+        assert root.level == stdlib_logging.DEBUG
+        assert len(root.handlers) >= 1
+
+    def test_setup_logging_json(self):
+        setup_logging(level="INFO", fmt="json")
+        root = stdlib_logging.getLogger()
+        assert any(isinstance(h.formatter, JsonFormatter) for h in root.handlers)
+
+    def test_get_logger(self):
+        logger = get_logger("test.module")
+        assert logger.name == "test.module"
+
+    def test_set_and_get_trace_id(self):
+        tid = set_trace_id("abc-123")
+        assert tid == "abc-123"
+        assert get_trace_id() == "abc-123"
+
+    def test_set_trace_id_auto_generates(self):
+        tid = set_trace_id()
+        assert len(tid) > 0
+        assert get_trace_id() == tid
+
+    def test_trace_id_filter(self):
+        set_trace_id("trace-test")
+        record = stdlib_logging.LogRecord("test", stdlib_logging.INFO, "", 0, "msg", (), None)
+        f = TraceIdFilter()
+        f.filter(record)
+        assert record.trace_id == "trace-test"
+
+    def test_trace_id_filter_no_trace(self):
+        from core.logging import _trace_id
+
+        _trace_id.set("")
+        record = stdlib_logging.LogRecord("test", stdlib_logging.INFO, "", 0, "msg", (), None)
+        f = TraceIdFilter()
+        f.filter(record)
+        assert record.trace_id == "-"
+
+    def test_text_formatter(self):
+        set_trace_id("fmt-test")
+        record = stdlib_logging.LogRecord("my.module", stdlib_logging.INFO, "", 0, "hello", (), None)
+        record.trace_id = "fmt-test"
+        fmt = TextFormatter()
+        output = fmt.format(record)
+        assert "INFO" in output
+        assert "my.module" in output
+        assert "fmt-test" in output
+        assert "hello" in output
+
+    def test_json_formatter(self):
+        record = stdlib_logging.LogRecord("my.module", stdlib_logging.WARNING, "", 0, "warning msg", (), None)
+        record.trace_id = "json-test"
+        fmt = JsonFormatter()
+        output = fmt.format(record)
+        data = json.loads(output)
+        assert data["level"] == "WARNING"
+        assert data["module"] == "my.module"
+        assert data["trace_id"] == "json-test"
+        assert data["msg"] == "warning msg"
+
+    def test_setup_logging_with_file(self, tmp_path):
+        log_file = str(tmp_path / "test.log")
+        setup_logging(level="INFO", fmt="text", log_file=log_file)
+        root = stdlib_logging.getLogger()
+        file_handlers = [h for h in root.handlers if isinstance(h, stdlib_logging.handlers.RotatingFileHandler)]
+        assert len(file_handlers) >= 1
+        # Cleanup
+        setup_logging(level="INFO", fmt="text")
+
+    def test_setup_logging_env_override(self):
+        with patch.dict("os.environ", {"LOG_LEVEL": "ERROR", "LOG_FORMAT": "json"}):
+            setup_logging(level="DEBUG", fmt="text")
+            root = stdlib_logging.getLogger()
+            assert root.level == stdlib_logging.ERROR
+            assert any(isinstance(h.formatter, JsonFormatter) for h in root.handlers)
+        # Reset
+        setup_logging(level="INFO", fmt="text")
+
+
+class TestLogDuration:
+    def test_sync_function(self):
+        @log_duration
+        def slow_func():
+            time.sleep(0.01)
+            return 42
+
+        result = slow_func()
+        assert result == 42
+
+    async def test_async_function(self):
+        import asyncio
+
+        @log_duration
+        async def async_func():
+            await asyncio.sleep(0.01)
+            return "done"
+
+        result = await async_func()
+        assert result == "done"
+
+    def test_sync_function_exception(self):
+        @log_duration
+        def failing_func():
+            raise ValueError("test error")
+
+        with pytest.raises(ValueError):
+            failing_func()
+
+    async def test_async_function_exception(self):
+        @log_duration
+        async def failing_async():
+            raise RuntimeError("async error")
+
+        with pytest.raises(RuntimeError):
+            await failing_async()
+
+
+# --- core/rate_limiter.py tests ---
+
+
+from core.rate_limiter import RateLimiter
+
+
+class TestRateLimiter:
+    def test_within_limit(self):
+        limiter = RateLimiter(limit=5, window_seconds=60)
+        for _ in range(5):
+            limiter.check("user1")  # Should not raise
+
+    def test_exceeds_limit(self):
+        limiter = RateLimiter(limit=3, window_seconds=60)
+        for _ in range(3):
+            limiter.check("user1")
+        with pytest.raises(RateLimitError, match="Rate limit exceeded"):
+            limiter.check("user1")
+
+    def test_per_user_isolation(self):
+        limiter = RateLimiter(limit=2, window_seconds=60)
+        limiter.check("user1")
+        limiter.check("user1")
+        # user2 should not be affected
+        limiter.check("user2")
+
+    def test_reset_user(self):
+        limiter = RateLimiter(limit=2, window_seconds=60)
+        limiter.check("user1")
+        limiter.check("user1")
+        limiter.reset("user1")
+        limiter.check("user1")  # Should not raise after reset
+
+    def test_reset_all(self):
+        limiter = RateLimiter(limit=1, window_seconds=60)
+        limiter.check("user1")
+        limiter.check("user2")
+        limiter.reset()
+        limiter.check("user1")  # Should not raise
+        limiter.check("user2")  # Should not raise
+
+    def test_default_limit_from_config(self):
+        limiter = RateLimiter()
+        assert limiter.limit == 10  # From platform.yaml config
+
+
+# --- core/audit.py tests ---
+
+
+from core.audit import log_tool_call, redact
+
+
+class TestAudit:
+    def test_redact_anthropic_key(self):
+        text = "key is sk-ant-api03-abcdefghijklmnop"
+        result = redact(text)
+        assert "sk-ant-api0" in result
+        assert "abcdefghijklmnop" not in result
+        assert "****" in result
+
+    def test_redact_openai_key(self):
+        text = "key is sk-abcdefghijklmnopqrstuvwxyz123456"
+        result = redact(text)
+        assert "****" in result
+        assert "abcdefghijklmnopqrstuvwxyz123456" not in result
+
+    def test_redact_github_token(self):
+        text = "token: ghp_1234567890abcdefghijklmnopqrstuv"
+        result = redact(text)
+        assert "ghp_1234" in result
+        assert "****" in result
+
+    def test_redact_bearer_token(self):
+        text = "Authorization: Bearer abcdefghijklmnop.xyz"
+        result = redact(text)
+        assert "Bearer abcd" in result
+        assert "****" in result
+
+    def test_no_redaction_normal_text(self):
+        text = "hello world, this is normal text"
+        assert redact(text) == text
+
+    def test_log_tool_call(self):
+        # Should not raise
+        log_tool_call(
+            agent_id="test_agent",
+            tool_name="test_tool",
+            params={"key": "sk-ant-api03-secret123", "data": {"nested": True}},
+            result_status="success",
+            duration_ms=42,
+        )
+
+    def test_redact_in_params(self):
+        from core.audit import _summarize_params
+
+        params = {
+            "token": "ghp_abcdefghijklmnopqrstuvwxyz",
+            "data": {"key": "value"},
+            "items": [1, 2, 3],
+            "count": 42,
+        }
+        summary = _summarize_params(params)
+        assert "****" in summary["token"]
+        assert summary["data"] == "{...}"
+        assert summary["items"] == "[3 items]"
+        assert summary["count"] == "42"

@@ -436,7 +436,7 @@ uv run pytest tests/unit/test_core.py tests/unit/test_channels.py -v --cov=core 
 
 ### Task 1.18: cui POC 验证（Gate Task）
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.1
 **产出文件**: `web/cui/` 完整源码, `docs/poc/cui-poc-report.md`
 
@@ -446,14 +446,14 @@ uv run pytest tests/unit/test_core.py tests/unit/test_channels.py -v --cov=core 
 Fork wbopan/cui 仓库，将源码复制到 `web/cui/` 目录，本地构建和运行，逐项验证以下能力。
 
 **POC 验证清单**:
-- [ ] `web/cui/` 包含 cui 完整源码（保留 MIT LICENSE）
-- [ ] `cd web/cui && npm install && npm run build` 成功
-- [ ] `npm run dev` 启动后浏览器能访问
-- [ ] 能与本机 Claude Code CLI 正常交互（发送消息、收到回复、看到工具调用）
-- [ ] **远程访问能力**：确认 cui 是否支持 `host: "0.0.0.0"` 绑定，记录配置方式
-- [ ] **后台任务能力**：确认关闭浏览器后任务是否继续执行，记录行为
-- [ ] **ntfy 推送能力**：确认 cui 是否内置 ntfy 支持，记录配置方式；若不内置，评估扩展方案
-- [ ] **Docker 化能力**：确认 cui 是否提供 Dockerfile 或文档化的容器部署方式
+- [x] `web/cui/` 包含 cui 完整源码（保留 Apache-2.0 LICENSE）
+- [x] `cd web/cui && npm install && npm run build` 成功
+- [ ] `npm run dev` 启动后浏览器能访问（需 Owner 手动验证）
+- [ ] 能与本机 Claude Code CLI 正常交互（需 Owner 手动验证）
+- [x] **远程访问能力**：支持 `--host 0.0.0.0` 和 `~/.cui/config.json` 配置
+- [x] **后台任务能力**：内置 ProcessManager，独立子进程，关闭浏览器后继续
+- [x] **ntfy 推送能力**：内置 notification-service.ts，支持自定义 ntfy URL
+- [x] **Docker 化能力**：无内置 Dockerfile，需自建（方案已记录在 POC 报告中）
 
 **产出**:
 编写 `docs/poc/cui-poc-report.md`，包含：
@@ -476,7 +476,7 @@ cd web/cui && npm install && npm run build
 
 ### Task 1.19: 配置 cui 远程访问 + 认证
 
-**状态**: [ ] 未开始
+**状态**: [ ] 未开始（需 Owner 参与部署验证）
 **依赖**: Task 1.18 (POC 通过后)
 **产出文件**: 根据 POC 报告确定
 
@@ -499,7 +499,7 @@ curl -k https://your-server:port/  # 验证 HTTPS 可达
 
 ### Task 1.20: 配置 ntfy 推送通知
 
-**状态**: [ ] 未开始
+**状态**: [ ] 未开始（需 Owner 参与部署验证）
 **依赖**: Task 1.18 (POC 通过后)
 **产出文件**: 根据 POC 报告确定
 
@@ -521,7 +521,7 @@ curl -d "Test notification" ntfy.sh/${NTFY_TOPIC}
 
 ### Task 1.20a: 实现平台日志基础设施
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.5
 **产出文件**: `core/logging.py`
 
@@ -531,28 +531,28 @@ curl -d "Test notification" ntfy.sh/${NTFY_TOPIC}
 **验收标准**:
 
 *基础能力*:
-- [ ] 提供 `setup_logging(level, format)` 函数，统一配置 Python 标准 logging
-- [ ] 提供 `get_logger(name)` 便捷函数，各模块通过 `logger = get_logger(__name__)` 获取 logger
-- [ ] 日志级别可通过 `config/platform.yaml` 的 `logging.level` 或环境变量 `LOG_LEVEL` 配置，环境变量优先
+- [x] 提供 `setup_logging(level, format)` 函数，统一配置 Python 标准 logging
+- [x] 提供 `get_logger(name)` 便捷函数，各模块通过 `logger = get_logger(__name__)` 获取 logger
+- [x] 日志级别可通过 `config/platform.yaml` 的 `logging.level` 或环境变量 `LOG_LEVEL` 配置，环境变量优先
 
 *结构化输出*:
-- [ ] 支持两种输出格式，通过 `LOG_FORMAT` 环境变量或配置切换：
+- [x] 支持两种输出格式，通过 `LOG_FORMAT` 环境变量或配置切换：
   - `text`（默认/开发）：人类可读格式，含时间戳、模块名、级别、消息
   - `json`（生产）：JSON 结构化格式，每行一个 JSON 对象，便于 `jq` 查询
 
 *Trace ID 追踪*:
-- [ ] 提供 `trace_id` ContextVar，渠道层入口调用 `set_trace_id()` 生成 UUID
-- [ ] 所有日志输出自动附加当前 `trace_id` 字段（通过自定义 Filter 实现）
-- [ ] 提供 `get_trace_id()` 函数，供事件总线写入 `PlatformEvent.correlation_id`
-- [ ] 无 trace_id 时日志正常输出（字段值为 `-`），不报错
+- [x] 提供 `trace_id` ContextVar，渠道层入口调用 `set_trace_id()` 生成 UUID
+- [x] 所有日志输出自动附加当前 `trace_id` 字段（通过自定义 Filter 实现）
+- [x] 提供 `get_trace_id()` 函数，供事件总线写入 `PlatformEvent.correlation_id`
+- [x] 无 trace_id 时日志正常输出（字段值为 `-`），不报错
 
 *性能日志*:
-- [ ] 提供 `@log_duration` 装饰器（支持同步和 async 函数），自动记录函数执行耗时 ms
-- [ ] 装饰器输出 INFO 级别日志，包含：函数名、耗时 ms、成功/失败
+- [x] 提供 `@log_duration` 装饰器（支持同步和 async 函数），自动记录函数执行耗时 ms
+- [x] 装饰器输出 INFO 级别日志，包含：函数名、耗时 ms、成功/失败
 
 *文件输出（可选）*:
-- [ ] 支持通过 `logging.file` 配置输出到文件，使用 `RotatingFileHandler`（10MB/文件，保留 5 个）
-- [ ] 未配置 `logging.file` 时仅输出到 stdout
+- [x] 支持通过 `logging.file` 配置输出到文件，使用 `RotatingFileHandler`（10MB/文件，保留 5 个）
+- [x] 未配置 `logging.file` 时仅输出到 stdout
 
 **测试命令**:
 ```bash
@@ -563,7 +563,7 @@ uv run pytest tests/unit/test_core.py -v -k "test_logging"
 
 ### Task 1.20b: 创建 tests/conftest.py 公共 Fixtures
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.2
 **产出文件**: `tests/conftest.py`
 
@@ -571,10 +571,10 @@ uv run pytest tests/unit/test_core.py -v -k "test_logging"
 创建测试公共 fixtures，供所有测试模块共享。
 
 **验收标准**:
-- [ ] 提供 `mock_config` fixture（加载测试用 platform.yaml）
-- [ ] 提供 `event_loop` fixture（pytest-asyncio 配置）
-- [ ] 提供 `tmp_data_dir` fixture（临时 data 目录，测试后自动清理）
-- [ ] 配置 pytest-asyncio mode = "auto"
+- [x] 提供 `mock_config` fixture（加载测试用 platform.yaml）
+- [x] 提供 `event_loop` fixture（pytest-asyncio mode="auto" 在 pyproject.toml 中配置）
+- [x] 提供 `tmp_data_dir` fixture（临时 data 目录，测试后自动清理）
+- [x] 配置 pytest-asyncio mode = "auto"
 
 **测试命令**:
 ```bash
