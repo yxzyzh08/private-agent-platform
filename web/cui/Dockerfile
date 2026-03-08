@@ -1,16 +1,20 @@
 # cui Web UI Dockerfile — Node.js service
 FROM node:20-slim
 
+# Install build tools for native modules (better-sqlite3)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy package files for layer caching
-COPY package.json package-lock.json ./
+# Copy all source first (postinstall.js needed during npm ci)
+COPY . .
 
 # Install dependencies
-RUN npm ci --production
+RUN npm ci --omit=dev
 
-# Copy source and build
-COPY . .
+# Build
 RUN npm run build
 
 EXPOSE 3001
