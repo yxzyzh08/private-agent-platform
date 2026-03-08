@@ -11,11 +11,11 @@
 | 项目 | 状态 |
 |------|------|
 | **当前 Phase** | Phase 1A: 平台骨架 + Web UI 开发工具 |
-| **当前任务** | Task 1.18 — cui POC 验证 |
+| **当前任务** | Task 1.25 — 端到端验证（阻塞中：需 Docker + Owner 参与） |
 | **工作分支** | `feat/phase-1a-devbot` |
-| **总测试数** | 108 |
+| **总测试数** | 144 |
 | **最新 Tag** | — |
-| **阻塞项** | 无 |
+| **阻塞项** | Task 1.19/1.20 需 Owner 部署验证；Task 1.25 需 Docker 环境 |
 
 ### Resume Instructions
 
@@ -39,7 +39,7 @@
 
 | Phase | 目标 | 状态 | 进度 | 详细计划 |
 |-------|------|------|------|---------|
-| Phase 1A | 平台骨架 + Web UI 开发工具 | 🔵 进行中 | 17/28 | [phase-1a.md](phases/phase-1a.md) |
+| Phase 1A | 平台骨架 + Web UI 开发工具 | 🔵 进行中 | 24/28 | [phase-1a.md](phases/phase-1a.md) |
 | Phase 1B | GitHub Issue 自动化 | ⚪ 未开始 | 0/11 | [phase-1b.md](phases/phase-1b.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
@@ -56,6 +56,8 @@
 | Session 1 完成 | 26 | 26 | Task 1.1~1.5 项目基础设施 |
 | Session 2 完成 | 61 | 61 | Task 1.6~1.10 工具层基础 |
 | Session 3 完成 | 108 | 108 | Task 1.11~1.17 平台核心 + 渠道基类 |
+| Session 4+5 完成 | 136 | 136 | Task 1.18~1.22 cui POC + 日志/限流/审计 |
+| Session 6 完成 | 144 | 144 | Task 1.23~1.24 main.py + Docker 配置 |
 
 ---
 

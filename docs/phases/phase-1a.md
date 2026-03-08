@@ -627,18 +627,18 @@ uv run pytest tests/unit/test_core.py -v -k "test_audit"
 
 ### Task 1.23: 实现 main.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.16 (channel_manager), Task 1.12 (tool_registry), Task 1.11 (event_bus)
 **产出文件**: `main.py`
 
 **验收标准**:
-- [ ] 加载 `.env` 环境变量
-- [ ] 加载 `config/platform.yaml` 配置
-- [ ] 初始化并注册所有工具
-- [ ] 启动事件总线
-- [ ] 启动 FastAPI 应用
-- [ ] 提供 `GET /health` 端点（平台状态、Redis 连接、cui 服务状态）
-- [ ] 优雅关闭：SIGINT/SIGTERM 时依次停止渠道 → 事件总线
+- [x] 加载 `.env` 环境变量
+- [x] 加载 `config/platform.yaml` 配置
+- [x] 初始化并注册所有工具
+- [x] 启动事件总线
+- [x] 启动 FastAPI 应用
+- [x] 提供 `GET /health` 端点（平台状态、Redis 连接、cui 服务状态）
+- [x] 优雅关闭：SIGINT/SIGTERM 时依次停止渠道 → 事件总线
 
 **测试命令**:
 ```bash
@@ -649,7 +649,7 @@ uv run python -c "from main import create_app; app = create_app(); print('App cr
 
 ### Task 1.24: 创建 Dockerfile + docker-compose.yml
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.23
 **产出文件**: `Dockerfile`, `web/cui/Dockerfile`, `docker-compose.yml`
 
@@ -657,13 +657,13 @@ uv run python -c "from main import create_app; app = create_app(); print('App cr
 Docker Compose 配置，包含三个服务：Python 平台、cui Web UI、Redis。
 
 **验收标准**:
-- [ ] `Dockerfile`：Python 平台镜像（使用 uv）
-- [ ] `web/cui/Dockerfile`：cui Node.js 镜像
-- [ ] `docker-compose.yml` 定义三个服务：`platform`、`cui`、`redis`
-- [ ] 环境变量通过 `.env` 文件注入
-- [ ] 端口映射：FastAPI 8000、cui 3001、Redis 6379
-- [ ] 共享卷：代码仓库目录、`~/.claude/` 会话数据、`data/` 运行时数据
-- [ ] health check 配置
+- [x] `Dockerfile`：Python 平台镜像（使用 uv）
+- [x] `web/cui/Dockerfile`：cui Node.js 镜像
+- [x] `docker-compose.yml` 定义三个服务：`platform`、`cui`、`redis`
+- [x] 环境变量通过 `.env` 文件注入
+- [x] 端口映射：FastAPI 8000、cui 3001、Redis 6379
+- [x] 共享卷：代码仓库目录、`~/.claude/` 会话数据、`data/` 运行时数据
+- [x] health check 配置
 
 **测试命令**:
 ```bash
