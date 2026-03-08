@@ -41,5 +41,8 @@ htmlcov/
 *.log
 logs/
 
+# Node.js (cui Web UI)
+web/cui/node_modules/
+
 # Claude Code (keep settings, ignore agent memory)
 .claude/agent-memory/

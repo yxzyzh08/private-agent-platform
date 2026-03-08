@@ -1,6 +1,6 @@
 # 个人多智能体平台 — 需求文档
 
-**版本**: v0.7
+**版本**: v0.8
 **日期**: 2026-03-08
 **状态**: 已确认，开发中
 
@@ -120,6 +120,134 @@ class ToolCall:
 - LiteLLM 负责将各厂商响应归一化到 `AgentResponse`
 - 切换模型（Claude → GPT-4o → 通义）不影响调度层和渠道层代码
 - Fallback 链：主模型失败时自动降级，记录 WARNING 日志
+
+### 3.4 跨层基础设施 — 日志系统
+
+日志是**平台基础设施**，与 config、errors、constants 同级，不是某个智能体或渠道的功能。所有层（渠道层、调度层、智能体层、工具层）统一使用同一套日志基础设施。
+
+#### 3.4.1 设计原则
+
+- **统一入口**：所有模块通过 `get_logger(__name__)` 获取 logger，禁止直接 `print()` 或自建 logger
+- **结构化输出**：生产环境使用 JSON 格式（便于 `jq` 查询和未来接入日志聚合），开发环境使用人类可读格式
+- **请求级追踪**：每个用户请求携带 `trace_id`，贯穿渠道 → 调度 → 智能体 → 工具全链路，日志中自动附加
+- **性能可观测**：关键操作（LLM 调用、工具执行、渠道消息处理）自动记录耗时
+- **安全脱敏**：API Key、Token 等敏感信息在日志输出前自动打码
+
+#### 3.4.2 Trace ID 传播机制
+
+```
+用户消息 → 渠道层生成 trace_id（UUID）
+         → 调度层透传 trace_id
+         → 智能体层透传 trace_id
+         → 工具层透传 trace_id
+         → 所有日志自动附加 trace_id 字段
+```
+
+- `trace_id` 通过 Python `contextvars.ContextVar` 实现，无需手动传参
+- 与事件总线的 `PlatformEvent.correlation_id` 对齐：事件发布时将当前 `trace_id` 写入 `correlation_id`
+- 日志输出示例（JSON 格式）：
+  ```json
+  {"ts": "2026-03-08T10:30:00Z", "level": "INFO", "module": "tools.knowledge_base", "trace_id": "abc-123", "msg": "RAG query completed", "duration_ms": 45}
+  ```
+
+#### 3.4.3 日志级别策略
+
+| 级别 | 用途 | 示例 |
+|------|------|------|
+| **DEBUG** | 开发调试信息，生产环境关闭 | 工具输入参数详情、LLM prompt 内容 |
+| **INFO** | 关键业务流程节点 | 用户消息接收、智能体开始处理、工具调用完成、LLM 响应返回 |
+| **WARNING** | 异常但可恢复的情况 | Fallback 模型降级、插件加载失败跳过、知识库相似度低、被吞掉的异常 |
+| **ERROR** | 需要关注的错误 | 工具执行失败、LLM API 错误、渠道连接断开 |
+| **CRITICAL** | 平台级故障 | Redis 连接丢失、所有模型不可用、主进程异常退出 |
+
+#### 3.4.4 日志输出配置
+
+| 环境 | 格式 | 输出目标 | 级别 |
+|------|------|---------|------|
+| 开发 (`LOG_FORMAT=text`) | 人类可读（带颜色） | 控制台 stdout | DEBUG |
+| 生产 (`LOG_FORMAT=json`) | JSON 结构化 | 控制台 stdout（Docker 收集） | INFO |
+
+- 日志级别通过 `config/platform.yaml` 的 `logging.level` 或环境变量 `LOG_LEVEL` 配置，环境变量优先
+- Docker 环境下日志输出到 stdout，由 Docker 日志驱动统一管理（轮转、保留策略在 `docker-compose.yml` 中配置）
+- 非 Docker 环境可选文件输出，通过 `logging.file` 配置路径，使用 `RotatingFileHandler`（默认 10MB/文件，保留 5 个）
+
+#### 3.4.5 性能日志
+
+关键操作自动记录耗时，便于定位性能瓶颈：
+
+| 操作 | 记录内容 | 级别 |
+|------|---------|------|
+| LLM 调用 | 模型名、input/output tokens、耗时 ms、finish_reason | INFO |
+| 工具执行 | 工具名、耗时 ms、成功/失败 | INFO |
+| 渠道消息处理 | 渠道 ID、从接收到响应的总耗时 ms | INFO |
+| 知识库查询 | 查询耗时 ms、返回文档数、最高相似度 | DEBUG |
+
+#### 3.4.6 实现位置
+
+| 文件 | 职责 |
+|------|------|
+| `core/logging.py` | `setup_logging()`、`get_logger()`、JSON/Text Formatter、trace_id ContextVar、性能日志装饰器 |
+| `core/audit.py` | 审计日志（工具调用记录）、敏感信息脱敏 Filter |
+
+#### 3.4.7 Phase 升级路径
+
+- **Phase 1**：实现完整日志基础设施（结构化输出、trace_id、性能日志、脱敏），所有后续 Phase 直接使用
+- **Phase 5**：如有需要，接入外部日志聚合（ELK/Loki），JSON 格式天然兼容，无需改动日志代码
+
+### 3.5 横切面需求演进路线
+
+横切面关注点（日志、安全、存储、配置、测试基础设施）贯穿所有 Phase，不能假设"Phase 1A 一次性铺设完毕"。下表明确每个 Phase 需要新增或扩展的横切面需求，确保不被遗漏。
+
+> **使用方式**：每个 Phase 的详细任务文件（`docs/phases/phase-N.md`）末尾包含一个"基础设施适配"任务，该任务的验收标准直接引用本表。
+
+#### 3.5.1 安全演进
+
+| Phase | 新增安全需求 | 实现位置 |
+|-------|------------|---------|
+| 1A | 速率限制、审计日志、日志脱敏、工具 Schema 校验 | `core/rate_limiter.py`, `core/audit.py` |
+| 1B | GitHub Webhook 签名验证 | `channels/github_webhook/channel.py` |
+| 2 | 知识库文件路径沙箱（防止越权读取） | `tools/file_tool.py` |
+| 3 | 用户配对码验证、Prompt Injection 防护、输入净化 | `core/security.py`, `core/agent_runtime.py` |
+| 4 | Cookie 安全管理（chmod 600）、账号隔离 | `tools/browser.py` |
+
+#### 3.5.2 存储演进
+
+| Phase | 新增存储需求 | 实现位置 |
+|-------|------------|---------|
+| 1A | Redis（事件总线）、会话 JSONL 基础设施 | `core/event_bus.py`, `core/memory.py` |
+| 2 | ChromaDB 向量库初始化 + 文档写入 | `tools/knowledge_base.py` |
+| 3 | 客服会话持久化（多客户隔离） | `data/agents/cs_bot/sessions/` |
+| 4 | 文章发布记录 + Cookie 存储 | `data/agents/marketing_bot/workspace/` |
+
+#### 3.5.3 配置演进
+
+| Phase | 新增配置需求 | 实现位置 |
+|-------|------------|---------|
+| 1A | `platform.yaml` 基础结构 | `config/platform.yaml` |
+| 1B | `dispatch.routes` 新增 GitHub Webhook 路由、`dev.yaml` | `config/` |
+| 2 | `knowledge_base.yaml`、知识库 sources 配置 | `config/agents/` |
+| 3 | `customer_service.yaml`、Telegram 渠道配置 | `config/agents/` |
+| 4 | `marketing.yaml`、调度 cron 配置 | `config/agents/` |
+
+#### 3.5.4 测试基础设施演进
+
+| Phase | 新增 Fixtures / Mock | 实现位置 |
+|-------|---------------------|---------|
+| 1A | `mock_config`, `tmp_data_dir`, `event_loop` | `tests/conftest.py` |
+| 1B | `mock_github_webhook`, `mock_claude_cli` | `tests/conftest.py` |
+| 2 | `mock_chromadb`, `mock_git_repo` | `tests/conftest.py` |
+| 3 | `mock_telegram`, `mock_knowledge_base` | `tests/conftest.py` |
+| 4 | `mock_playwright`, `mock_scheduler` | `tests/conftest.py` |
+
+#### 3.5.5 错误类型演进
+
+| Phase | 新增异常类型 | 实现位置 |
+|-------|------------|---------|
+| 1A | `PlatformError`, `ToolError`, `ChannelError`, `PermissionDeniedError`, `RateLimitError`, `ValidationError` | `core/errors.py` |
+| 1B | `WebhookVerificationError` | `core/errors.py` |
+| 2 | `KnowledgeBaseError`（索引失败、查询超时） | `core/errors.py` |
+| 3 | `EscalationError`（升级通知失败）、`SessionError` | `core/errors.py` |
+| 4 | `BrowserError`（页面加载失败）、`CookieExpiredError` | `core/errors.py` |
 
 ---
 
@@ -518,6 +646,7 @@ config_schema:              # 插件专属配置的 JSON Schema
 ```python
 @dataclass
 class PlatformEvent:
+    event_id: str                # UUID，去重和幂等
     type: str                    # 事件类型
     source_agent: str            # 来源智能体
     payload: dict                # 事件数据
@@ -627,6 +756,11 @@ storage:
   vector_db_path: ./data/chroma
   session_db: ./data/sessions
 
+logging:
+  level: INFO                    # DEBUG | INFO | WARNING | ERROR（环境变量 LOG_LEVEL 优先）
+  format: text                   # text（开发）| json（生产）（环境变量 LOG_FORMAT 优先）
+  # file: ./data/logs/platform.log  # 可选：文件输出（RotatingFileHandler，10MB × 5）
+
 channels:
   plugins: []                    # 启用的插件渠道列表（如 chatwoot）
 ```
@@ -724,6 +858,8 @@ private-agent-platform/
 │   ├── channel_manager.py       # 渠道生命周期
 │   ├── event_bus.py             # 事件总线（Redis Queue）
 │   ├── dispatch.py              # 消息路由调度
+│   ├── logging.py               # 日志基础设施（结构化输出、trace_id、性能日志）
+│   ├── audit.py                 # 审计日志 + 敏感信息脱敏
 │   ├── memory.py                # 对话记忆管理
 │   ├── errors.py                # 自定义异常
 │   └── constants.py             # 平台常量
@@ -966,4 +1102,4 @@ async def test_claude_api_real():
 ---
 
 
-*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-08（v0.7 开发机器人 UI 从 Telegram 切换为 cui Web UI；添加 ntfy 推送通知）*
+*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-08（v0.8 新增 §3.5 横切面需求演进路线，明确每个 Phase 的安全/存储/配置/测试/错误类型扩展需求）*

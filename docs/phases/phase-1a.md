@@ -9,70 +9,18 @@
 
 ---
 
-## 1.0 — POC 验证（Phase 1A 前置，手动执行，非 Claude Code 自动任务）
+## Session 边界建议
 
-### Task 1.0.1: Claude Code CLI POC 稳定性测试 🔧 手动
+> Phase 1A 共 28 个任务，分 6 个任务组。建议按任务组划分 AI 工作 session，每次 session 完成一个任务组后 commit 并更新文档。
 
-**状态**: [ ] 未开始
-**依赖**: 无
-**产出文件**: `docs/poc/claude_code_cli.md`
-
-**描述**:
-模拟 10 个不同类型的开发任务（新功能开发、Bug 修复、代码重构），逐个调用 Claude Code CLI 处理，记录成功率、失败原因、耗时。
-
-**验收标准**:
-- [ ] 准备 10 个模拟任务（覆盖新功能/Bug修复/重构三类）
-- [ ] 逐个执行 `claude -p "{task}" --output-format json`
-- [ ] 记录每次调用的 exit code、耗时、输出长度
-- [ ] 成功率 ≥ 80%（8/10 成功完成）
-- [ ] 产出 POC 报告文档
-
-**测试命令**:
-```bash
-# 手动执行，记录结果到 POC 报告
-claude -p "Create a simple FastAPI hello world app" --output-format json
-```
-
----
-
-### Task 1.0.2: 运行行为观察 🔧 手动
-
-**状态**: [ ] 未开始
-**依赖**: Task 1.0.1
-**产出文件**: POC 报告（同 1.0.1）
-
-**描述**:
-订阅模式下无需关注 token 费用。此任务改为观察 CLI 运行行为：耗时分布、输出长度、是否出现无限循环等异常。
-
-**验收标准**:
-- [ ] 记录每次调用的耗时和输出长度（行数/字符数）
-- [ ] 确认无异常长时间运行（>30 分钟无输出）的情况
-- [ ] 结果记入 POC 报告
-
----
-
-### Task 1.0.3: 网络中断恢复测试 🔧 手动
-
-**状态**: [ ] 未开始
-**依赖**: Task 1.0.1
-**产出文件**: POC 报告（同 1.0.1）
-
-**验收标准**:
-- [ ] 模拟网络中断（断开 VPN/WiFi 后恢复）
-- [ ] 记录 CLI 的错误处理行为
-- [ ] 确认是否需要额外的重试逻辑
-
----
-
-### Task 1.0.4: POC 结论 🔧 手动
-
-**状态**: [ ] 未开始
-**依赖**: Task 1.0.1, 1.0.2, 1.0.3
-**产出文件**: POC 报告最终版
-
-**验收标准**:
-- [ ] 通过 → 更新 progress.md，进入 Phase 1A 正式开发
-- [ ] 失败 → 记录失败原因，调整策略
+| Session | 任务组 | 范围 | 预计任务数 |
+|---------|--------|------|-----------|
+| Session 1 | 1A — 项目基础设施 | Task 1.1 ~ 1.5 | 5 |
+| Session 2 | 1B — 工具层基础 | Task 1.6 ~ 1.10 | 5 |
+| Session 3 | 1C — 平台核心 | Task 1.11 ~ 1.17 | 7 |
+| Session 4 | 1D — Web UI (cui) 集成 | Task 1.18 ~ 1.20b | 5 |
+| Session 5 | 1E — 安全基础 | Task 1.21 ~ 1.22 | 2 |
+| Session 6 | 1F — 平台入口 + 部署 | Task 1.23 ~ 1.26 | 4 |
 
 ---
 
@@ -80,18 +28,18 @@ claude -p "Create a simple FastAPI hello world app" --output-format json
 
 ### Task 1.1: 创建项目目录结构
 
-**状态**: [ ] 未开始
-**依赖**: Task 1.0.4（POC 通过）
+**状态**: [x] 完成
+**依赖**: 无
 **产出文件**: `core/`, `tools/`, `channels/`, `agents/`, `config/`, `data/`, `tests/`, `web/cui/`
 
 **描述**:
 按 `docs/requirement.md` 第 11 节定义的目录结构创建所有目录和 `__init__.py`。
 
 **验收标准**:
-- [ ] 所有目录已创建（core, tools, channels, agents, config, data, tests, web 及子目录）
-- [ ] 每个 Python 包含 `__init__.py`
-- [ ] `data/` 目录下创建 `knowledge/`, `chroma/`, `agents/`, `sessions/` 子目录
-- [ ] `web/cui/` 目录预留（源码在 Task 1.15 集成）
+- [x] 所有目录已创建（core, tools, channels, agents, config, data, tests, web 及子目录）
+- [x] 每个 Python 包含 `__init__.py`
+- [x] `data/` 目录下创建 `knowledge/`, `chroma/`, `agents/`, `sessions/` 子目录
+- [x] `web/cui/` 目录预留（源码在 Task 1.18 集成）
 
 **测试命令**:
 ```bash
@@ -102,7 +50,7 @@ python -c "import core; import tools; import channels; import agents; print('OK'
 
 ### Task 1.2: 创建 pyproject.toml（uv 项目配置 + 代码质量工具链）
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.1
 **产出文件**: `pyproject.toml`, `uv.lock`, `.pre-commit-config.yaml`
 
@@ -110,14 +58,14 @@ python -c "import core; import tools; import channels; import agents; print('OK'
 使用 uv 管理项目依赖。配置 ruff + pre-commit 自动强制执行代码规范。
 
 **验收标准**:
-- [ ] `pyproject.toml` 的 `[project.dependencies]` 包含 Phase 1A 所需依赖（FastAPI, LiteLLM, ChromaDB, PyGitHub, APScheduler, redis, httpx）
-- [ ] `pyproject.toml` 的 `[project.optional-dependencies]` 定义 dev 依赖（pytest, pytest-cov, pytest-asyncio, ruff, pre-commit）
-- [ ] LiteLLM 版本号锁定（`litellm==X.Y.Z`）
-- [ ] `[tool.ruff]` 配置 Linter 规则：target-version py311, line-length 120, select E/F/I/B/UP/ASYNC
-- [ ] `[tool.ruff.format]` 配置 Formatter
-- [ ] `.pre-commit-config.yaml` 配置 hooks：ruff check + ruff format
-- [ ] `uv sync` 成功安装所有依赖
-- [ ] `uv.lock` 已生成
+- [x] `pyproject.toml` 的 `[project.dependencies]` 包含 Phase 1A 所需依赖（FastAPI, LiteLLM, ChromaDB, PyGitHub, APScheduler, redis, httpx）
+- [x] `pyproject.toml` 的 `[project.optional-dependencies]` 定义 dev 依赖（pytest, pytest-cov, pytest-asyncio, ruff, pre-commit）
+- [x] LiteLLM 版本号锁定（`litellm==1.81.6`）
+- [x] `[tool.ruff]` 配置 Linter 规则：target-version py311, line-length 120, select E/F/I/B/UP/ASYNC
+- [x] `[tool.ruff.format]` 配置 Formatter
+- [x] `.pre-commit-config.yaml` 配置 hooks：ruff check + ruff format
+- [x] `uv sync` 成功安装所有依赖
+- [x] `uv.lock` 已生成
 
 **测试命令**:
 ```bash
@@ -130,47 +78,54 @@ uv run ruff format --check .
 
 ### Task 1.3: 创建 .env.example + .gitignore
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.1
 **产出文件**: `.env.example`, `.gitignore`
 
 **验收标准**:
-- [ ] `.env.example` 包含 `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET`, `REDIS_URL`, `NTFY_TOPIC`
-- [ ] 每个变量附有注释说明，不包含任何真实密钥
-- [ ] `.gitignore` 忽略 `.env`、`data/`、`__pycache__/`、`.pytest_cache/`、`*.pyc`、IDE 配置、`web/cui/node_modules/`
+- [x] `.env.example` 包含 `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET`, `REDIS_URL`, `NTFY_TOPIC`
+- [x] 每个变量附有注释说明，不包含任何真实密钥
+- [x] `.gitignore` 忽略 `.env`、`data/`、`__pycache__/`、`.pytest_cache/`、`*.pyc`、IDE 配置、`web/cui/node_modules/`
 
 ---
 
-### Task 1.4: 创建 config/platform.yaml
+### Task 1.4: 创建 config/platform.yaml + core/config.py (Config Loader)
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.1
-**产出文件**: `config/platform.yaml`
+**产出文件**: `config/platform.yaml`, `core/config.py`
+
+**描述**:
+创建平台配置文件和配置加载器。`core/config.py` 负责读取 `config/platform.yaml`，提供全局配置访问接口，供 `constants.py` 和其他模块使用。
 
 **验收标准**:
-- [ ] 包含 `platform`, `models`, `security`, `storage`, `channels` 所有配置段
-- [ ] models.default 设为 `claude-sonnet-4-6`，fallback 包含备选模型
-- [ ] 不包含任何 API Key（从 `.env` 读取）
-- [ ] 包含 `dispatch.routes` 路由规则配置（渠道→智能体映射，配置化）
-- [ ] 包含 `cui` 配置段（host, port, working_directory）
+- [x] 包含 `platform`, `models`, `security`, `storage`, `channels` 所有配置段
+- [x] models.default 设为 `claude-sonnet-4-6`，fallback 包含备选模型
+- [x] 不包含任何 API Key（从 `.env` 读取）
+- [x] 包含 `dispatch.routes` 路由规则配置（渠道→智能体映射，配置化）
+- [x] 包含 `cui` 配置段（host, port, working_directory）
+- [x] `core/config.py` 实现 `load_config(path)` 函数，返回解析后的配置字典
+- [x] 配置加载失败时抛出明确异常（文件不存在、YAML 格式错误）
+- [x] 提供 `get_config()` 单例访问接口，避免重复加载
 
 **测试命令**:
 ```bash
 python -c "import yaml; c = yaml.safe_load(open('config/platform.yaml')); print(c['platform']['name'])"
+uv run pytest tests/unit/test_core.py -v -k "test_config"
 ```
 
 ---
 
 ### Task 1.5: 创建 core/errors.py + core/constants.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.1
 **产出文件**: `core/errors.py`, `core/constants.py`
 
 **验收标准**:
-- [ ] `errors.py` 定义 `PlatformError`（基类）、`ToolError`、`ChannelError`、`PermissionDeniedError`、`RateLimitError`、`ValidationError`
-- [ ] `constants.py` 定义 `MAX_MESSAGE_LENGTH`, `RATE_LIMIT_PER_MINUTE`, `DEFAULT_MODEL`, `MAX_CONTEXT_TOKENS`, `MAX_TOOL_USE_ROUNDS = 10` 等常量
-- [ ] 常量值可被 `config/platform.yaml` 覆盖（通过 config loader）
+- [x] `errors.py` 定义 `PlatformError`（基类）、`ToolError`、`ChannelError`、`PermissionDeniedError`、`RateLimitError`、`ValidationError`
+- [x] `constants.py` 定义 `MAX_MESSAGE_LENGTH`, `RATE_LIMIT_PER_MINUTE`, `DEFAULT_MODEL`, `MAX_CONTEXT_TOKENS`, `MAX_TOOL_USE_ROUNDS = 10`, `MAX_INPUT_LENGTH = 16000`, `CONTEXT_ROUND_DEFINITION = "user+assistant pair"` 等常量
+- [x] 常量值可被 `config/platform.yaml` 覆盖（通过 Task 1.4 的 `core/config.py` config loader）
 
 **测试命令**:
 ```bash
@@ -273,8 +228,12 @@ uv run pytest tests/unit/test_tools.py -v -k "test_git_tool"
 **依赖**: Task 1.6 (BaseTool), Task 1.11 (event_bus.py)
 **产出文件**: `tools/event_bus_tool.py`
 
+**描述**:
+封装事件总线操作为工具。注意依赖方向：`tools/` 可依赖 `core/` 的接口（`core/ ← tools/` 是允许的方向），event_bus_tool 通过构造函数注入 `EventBus` 实例，不直接 import core 模块的内部实现。
+
 **验收标准**:
 - [ ] 继承 BaseTool
+- [ ] 通过构造函数注入 `EventBus` 实例（依赖注入，不在模块顶层 import core.event_bus）
 - [ ] 支持 `publish` 和 `subscribe` 操作
 - [ ] `publish` 需要 `event_type` 和 `payload` 参数
 - [ ] 事件符合 `PlatformEvent` schema
@@ -378,7 +337,7 @@ uv run pytest tests/unit/test_core.py -v -k "test_tool_registry"
 
 **验收标准**:
 - [ ] 消息以 JSONL 格式追加写入 `data/agents/<agent_id>/sessions/<session_id>/messages.jsonl`
-- [ ] `ContextPruner` 在 token 超过模型上限 80% 时截断最旧轮次，保留系统 Prompt + 最新 15 轮
+- [ ] `ContextPruner` 在 token 超过模型上限 80% 时截断最旧轮次，保留系统 Prompt + 最新 15 轮（1 轮 = 1 次 user 消息 + 1 次 assistant 回复，tool_result 附属于所在轮次）
 - [ ] 单条消息超过 8000 token 时截断并附注 `[内容已截断]`
 
 **测试命令**:
@@ -403,7 +362,7 @@ uv run pytest tests/unit/test_core.py -v -k "test_memory"
 - [ ] tool_use 循环直到模型返回 `stop` 或达到 `MAX_TOOL_USE_ROUNDS`
 - [ ] 每轮调用前执行 `ContextPruner` 裁剪
 - [ ] 模型 Fallback：主模型失败时按 `config/platform.yaml` 降级
-- [ ] 用户输入净化：不直接拼接到系统 Prompt，过滤控制字符、截断超长输入
+- [ ] 用户输入净化：不直接拼接到系统 Prompt，过滤 Unicode 控制字符（C0/C1 控制码，保留换行和制表符），截断超过 `MAX_INPUT_LENGTH`（默认 16000 字符）的输入并附注 `[输入已截断]`
 
 **测试命令**:
 ```bash
@@ -475,46 +434,65 @@ uv run pytest tests/unit/test_core.py tests/unit/test_channels.py -v --cov=core 
 
 ## 1D — Web UI (cui) 集成
 
-### Task 1.18: Fork 并集成 cui 源码
+### Task 1.18: cui POC 验证（Gate Task）
 
 **状态**: [ ] 未开始
 **依赖**: Task 1.1
-**产出文件**: `web/cui/` 完整源码
+**产出文件**: `web/cui/` 完整源码, `docs/poc/cui-poc-report.md`
 
 **描述**:
-Fork wbopan/cui 仓库，将源码复制到 `web/cui/` 目录，验证本地构建和运行。
+**Gate Task**：在正式配置 cui 之前，先做 POC 验证，确认 cui 的实际能力和集成方式。POC 结果将决定 Task 1.19 和 Task 1.20 的具体实施方案。
 
-**验收标准**:
+Fork wbopan/cui 仓库，将源码复制到 `web/cui/` 目录，本地构建和运行，逐项验证以下能力。
+
+**POC 验证清单**:
 - [ ] `web/cui/` 包含 cui 完整源码（保留 MIT LICENSE）
-- [ ] `cd web/cui && npm install` 成功
+- [ ] `cd web/cui && npm install && npm run build` 成功
 - [ ] `npm run dev` 启动后浏览器能访问
 - [ ] 能与本机 Claude Code CLI 正常交互（发送消息、收到回复、看到工具调用）
+- [ ] **远程访问能力**：确认 cui 是否支持 `host: "0.0.0.0"` 绑定，记录配置方式
+- [ ] **后台任务能力**：确认关闭浏览器后任务是否继续执行，记录行为
+- [ ] **ntfy 推送能力**：确认 cui 是否内置 ntfy 支持，记录配置方式；若不内置，评估扩展方案
+- [ ] **Docker 化能力**：确认 cui 是否提供 Dockerfile 或文档化的容器部署方式
+
+**产出**:
+编写 `docs/poc/cui-poc-report.md`，包含：
+1. 每项验证的结果（通过/不通过/需适配）
+2. cui 的实际配置机制和限制
+3. 对 Task 1.19 和 Task 1.20 的具体方案建议（基于 POC 发现）
+4. 如发现 cui 不满足需求，提出替代方案
 
 **测试命令**:
 ```bash
 cd web/cui && npm install && npm run build
 ```
 
+**Gate 规则**:
+- POC 全部通过 → 按 POC 报告中的方案执行 Task 1.19 和 Task 1.20
+- POC 部分不通过 → 根据报告调整 Task 1.19/1.20 的验收标准后再执行
+- POC 发现根本性问题 → 暂停 1D 任务组，与 Owner 讨论替代方案
+
 ---
 
-### Task 1.19: 配置 cui + 反向代理认证
+### Task 1.19: 配置 cui 远程访问 + 认证
 
 **状态**: [ ] 未开始
-**依赖**: Task 1.18
-**产出文件**: `web/cui/` 配置更新, `config/nginx/` 或 `Caddyfile`
+**依赖**: Task 1.18 (POC 通过后)
+**产出文件**: 根据 POC 报告确定
 
 **描述**:
-配置 cui 绑定到 `0.0.0.0` 支持远程访问，通过反向代理（nginx 或 Caddy）添加 HTTPS + Basic Auth 认证，确保只有 Owner 能访问。
+基于 Task 1.18 POC 报告的发现，配置 cui 支持远程安全访问。具体方案（反向代理选型、认证方式）由 POC 结果决定。
 
-**验收标准**:
-- [ ] cui 配置 `host: "0.0.0.0"` 允许远程连接
-- [ ] 反向代理配置 HTTPS（自签证书或 Let's Encrypt）
-- [ ] Basic Auth 或 API Token 认证（防止未授权访问）
-- [ ] 从外部浏览器通过 HTTPS 能访问 cui 并正常使用
+**验收标准**（基线，POC 后可能调整）:
+- [ ] cui 支持从外部网络访问
+- [ ] HTTPS 加密传输
+- [ ] 认证机制保护（防止未授权访问）
+- [ ] 从外部浏览器能正常使用 cui 全部功能
 
 **测试命令**:
 ```bash
-curl -u owner:password https://your-server:port/health
+# 具体命令根据 POC 报告确定的方案填写
+curl -k https://your-server:port/  # 验证 HTTPS 可达
 ```
 
 ---
@@ -522,22 +500,85 @@ curl -u owner:password https://your-server:port/health
 ### Task 1.20: 配置 ntfy 推送通知
 
 **状态**: [ ] 未开始
-**依赖**: Task 1.18
-**产出文件**: `web/cui/` 配置更新
+**依赖**: Task 1.18 (POC 通过后)
+**产出文件**: 根据 POC 报告确定
 
 **描述**:
-配置 cui 的 ntfy 推送通知功能，当后台任务完成或失败时推送到 Owner 手机。
+基于 Task 1.18 POC 报告的发现，配置后台任务完成/失败时的 ntfy 推送通知。如果 cui 内置 ntfy 支持则直接配置；如果不内置，按 POC 报告中的扩展方案实现。
 
-**验收标准**:
-- [ ] ntfy topic 配置到 cui 设置中
-- [ ] 后台任务完成后收到 ntfy 推送
-- [ ] 后台任务失败后收到 ntfy 推送（含错误摘要）
-- [ ] 手机安装 ntfy app 能正常收到通知
+**验收标准**（基线，POC 后可能调整）:
+- [ ] 后台任务完成后 Owner 手机收到推送通知
+- [ ] 后台任务失败后 Owner 手机收到推送通知（含错误摘要）
+- [ ] ntfy topic 可通过环境变量或配置文件设置
 
 **测试命令**:
 ```bash
-# 手动验证：启动 cui，提交一个后台任务，关闭浏览器，等待 ntfy 推送
-curl -d "Test notification" ntfy.sh/your-topic
+# 手动验证：启动 cui，提交一个后台任务，关闭浏览器，等待推送
+curl -d "Test notification" ntfy.sh/${NTFY_TOPIC}
+```
+
+---
+
+### Task 1.20a: 实现平台日志基础设施
+
+**状态**: [ ] 未开始
+**依赖**: Task 1.5
+**产出文件**: `core/logging.py`
+
+**描述**:
+日志是平台跨层基础设施，所有后续 Phase 的所有模块都依赖此模块。需实现：统一 logger 入口、结构化输出、请求级 trace_id 追踪、性能日志。详细需求见 `docs/requirement.md` §3.4。
+
+**验收标准**:
+
+*基础能力*:
+- [ ] 提供 `setup_logging(level, format)` 函数，统一配置 Python 标准 logging
+- [ ] 提供 `get_logger(name)` 便捷函数，各模块通过 `logger = get_logger(__name__)` 获取 logger
+- [ ] 日志级别可通过 `config/platform.yaml` 的 `logging.level` 或环境变量 `LOG_LEVEL` 配置，环境变量优先
+
+*结构化输出*:
+- [ ] 支持两种输出格式，通过 `LOG_FORMAT` 环境变量或配置切换：
+  - `text`（默认/开发）：人类可读格式，含时间戳、模块名、级别、消息
+  - `json`（生产）：JSON 结构化格式，每行一个 JSON 对象，便于 `jq` 查询
+
+*Trace ID 追踪*:
+- [ ] 提供 `trace_id` ContextVar，渠道层入口调用 `set_trace_id()` 生成 UUID
+- [ ] 所有日志输出自动附加当前 `trace_id` 字段（通过自定义 Filter 实现）
+- [ ] 提供 `get_trace_id()` 函数，供事件总线写入 `PlatformEvent.correlation_id`
+- [ ] 无 trace_id 时日志正常输出（字段值为 `-`），不报错
+
+*性能日志*:
+- [ ] 提供 `@log_duration` 装饰器（支持同步和 async 函数），自动记录函数执行耗时 ms
+- [ ] 装饰器输出 INFO 级别日志，包含：函数名、耗时 ms、成功/失败
+
+*文件输出（可选）*:
+- [ ] 支持通过 `logging.file` 配置输出到文件，使用 `RotatingFileHandler`（10MB/文件，保留 5 个）
+- [ ] 未配置 `logging.file` 时仅输出到 stdout
+
+**测试命令**:
+```bash
+uv run pytest tests/unit/test_core.py -v -k "test_logging"
+```
+
+---
+
+### Task 1.20b: 创建 tests/conftest.py 公共 Fixtures
+
+**状态**: [ ] 未开始
+**依赖**: Task 1.2
+**产出文件**: `tests/conftest.py`
+
+**描述**:
+创建测试公共 fixtures，供所有测试模块共享。
+
+**验收标准**:
+- [ ] 提供 `mock_config` fixture（加载测试用 platform.yaml）
+- [ ] 提供 `event_loop` fixture（pytest-asyncio 配置）
+- [ ] 提供 `tmp_data_dir` fixture（临时 data 目录，测试后自动清理）
+- [ ] 配置 pytest-asyncio mode = "auto"
+
+**测试命令**:
+```bash
+uv run pytest tests/ --co  # 验证 fixtures 可发现
 ```
 
 ---
@@ -551,10 +592,10 @@ curl -d "Test notification" ntfy.sh/your-topic
 **产出文件**: `core/rate_limiter.py`
 
 **验收标准**:
-- [ ] 基于滑动窗口的速率限制
+- [ ] 基于滑动窗口的速率限制（per-user 粒度，与需求文档"单用户每分钟最多 10 条消息"一致）
 - [ ] 限制阈值从 `constants.py` 读取（RATE_LIMIT_PER_MINUTE = 10）
 - [ ] 超出限制抛出 `RateLimitError`
-- [ ] 不同用户独立计数
+- [ ] 不同用户独立计数（user_id 作为限流 key）
 
 **测试命令**:
 ```bash
@@ -634,7 +675,7 @@ docker-compose config  # 验证配置语法
 ### Task 1.25: 端到端验证
 
 **状态**: [ ] 未开始
-**依赖**: Task 1.23, Task 1.24, Task 1.19, Task 1.20
+**依赖**: Task 1.23, Task 1.24, Task 1.19, Task 1.20, Task 1.20a
 **产出文件**: 无（验证性任务）
 
 **描述**:

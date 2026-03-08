@@ -30,4 +30,21 @@
 | 4.5 | 创建 `config/agents/marketing.yaml` | [ ] | `config/agents/marketing.yaml` |
 | 4.6 | 实现文章生成 + 发布流程（知乎或博客/RSS 替代方案） | [ ] | 营销机器人核心逻辑 |
 | 4.7 | 营销机器人集成测试 | [ ] | `tests/unit/test_agents/test_marketing_bot.py` |
+| 4.7a | Phase 4 基础设施适配（见下方详细描述） | [ ] | `core/errors.py`, `tests/conftest.py` |
 | 4.8 | 端到端验证 + 文档同步 + tag `v0.4.0` | [ ] | 本文件、Git tag |
+
+---
+
+### Task 4.7a: Phase 4 基础设施适配
+
+**状态**: [ ] 未开始
+**参考**: `docs/requirement.md` §3.5 横切面需求演进路线
+
+**验收标准**:
+- [ ] **安全 — Cookie 管理**：`data/sessions/` 目录 Cookie 文件 `chmod 600`；Cookie 失效时暂停任务并发送 Telegram 告警
+- [ ] **安全 — 账号隔离**：营销机器人使用专用账号，不共享主号凭证
+- [ ] **错误**：`core/errors.py` 新增 `BrowserError`（页面加载失败）、`CookieExpiredError`
+- [ ] **存储**：文章发布记录持久化到 `data/agents/marketing_bot/workspace/published_articles.json`
+- [ ] **日志**：`tools/browser.py` 和 `agents/marketing_agent.py` 使用 `get_logger(__name__)`，浏览器操作记录耗时
+- [ ] **配置**：`config/agents/marketing.yaml` 创建，声明 `allowed_tools` 和 `schedule` 配置
+- [ ] **测试**：`tests/conftest.py` 新增 `mock_playwright`、`mock_scheduler` fixtures
