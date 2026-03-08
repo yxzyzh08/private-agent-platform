@@ -1,0 +1,51 @@
+[project]
+name = "private-agent-platform"
+version = "0.1.0"
+description = "个人多智能体调度平台"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "litellm==1.81.6",
+    "chromadb>=0.6.0",
+    "PyGitHub>=2.5.0",
+    "APScheduler>=3.10.0,<4.0",
+    "redis>=5.0.0",
+    "httpx>=0.27.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "jsonschema>=4.20.0",
+    "aiofiles>=24.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.9.0",
+    "pre-commit>=4.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core", "tools", "channels", "agents"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--cov=core --cov=tools --cov=channels --cov=agents --cov-report=term-missing"

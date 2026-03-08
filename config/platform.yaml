@@ -1,0 +1,41 @@
+platform:
+  name: "My Agent Platform"
+  owner_telegram_id: "YOUR_TELEGRAM_ID"
+
+models:
+  default: claude-sonnet-4-6
+  fallback:
+    - gpt-4o
+    - qwen-plus
+
+security:
+  dm_policy: pairing
+  allowed_users: []
+  rate_limit_per_minute: 10
+
+storage:
+  vector_db: chroma
+  vector_db_path: ./data/chroma
+  session_db: ./data/sessions
+
+logging:
+  level: INFO
+  format: text
+  # file: ./data/logs/platform.log
+
+channels:
+  plugins: []
+
+dispatch:
+  routes:
+    - channel: cui
+      agent: dev_bot
+    - channel: github_webhook
+      agent: dev_bot
+    - channel: telegram
+      agent: cs_bot
+
+cui:
+  host: "0.0.0.0"
+  port: 3001
+  working_directory: "."

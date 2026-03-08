@@ -215,10 +215,35 @@ uv run python -c "from main import create_app; app = create_app(); print('App cr
 
 ---
 
+### Task 1B.9a: Phase 1B 基础设施适配
+
+**状态**: [ ] 未开始
+**依赖**: Task 1B.7
+**参考**: `docs/requirement.md` §3.5 横切面需求演进路线
+
+**描述**:
+确保 Phase 1B 新增的模块正确集成平台横切面基础设施。
+
+**验收标准**:
+- [ ] **安全**：GitHub Webhook 签名验证（`X-Hub-Signature-256`）已实现，验证失败返回 403 并记录日志
+- [ ] **错误**：`core/errors.py` 新增 `WebhookVerificationError` 异常类型
+- [ ] **日志**：`channels/github_webhook/channel.py` 和 `agents/dev_agent.py` 使用 `get_logger(__name__)`
+- [ ] **Trace ID**：GitHub Webhook 入口调用 `set_trace_id()` 生成请求追踪 ID
+- [ ] **审计**：`claude_code_cli` 和 `git_tool` 的工具调用经过审计记录
+- [ ] **测试**：`tests/conftest.py` 新增 `mock_github_webhook`、`mock_claude_cli` fixtures
+- [ ] **配置**：`config/platform.yaml` 的 `dispatch.routes` 包含 GitHub Webhook 路由
+
+**测试命令**:
+```bash
+uv run pytest tests/ -v  # 全量回归
+```
+
+---
+
 ### Task 1B.10: Post-Phase 文档同步 + Git Tag
 
 **状态**: [ ] 未开始
-**依赖**: Task 1B.9
+**依赖**: Task 1B.9, Task 1B.9a
 
 **验收标准**:
 - [ ] 本文件所有任务标记 `[x]`

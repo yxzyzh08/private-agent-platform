@@ -14,7 +14,8 @@
 > 3. **检查产出文件** — 该任务的产出文件是否已存在？如已有部分代码则先阅读理解再继续，避免覆盖已有工作
 > 4. **切换到正确分支** — `git checkout <branch>`（如果是 git repo）
 > 5. **运行测试** — `python -m pytest tests/ -v`（有测试时）确认 baseline
-> 6. **开始开发** — 无需等待用户指示，直接开始
+> 6. **一致性验证** — 对 phase 文件中已标记 `[x]` 的最近 3 个任务，快速检查其产出文件是否存在且测试通过。发现不一致时，优先修复再继续
+> 7. **开始开发** — 无需等待用户指示，直接开始
 
 当用户说 **"继续"、"continue"、"接着做"** 或类似指令时，同样执行上述步骤。
 
@@ -174,6 +175,10 @@ curl https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe
 | **禁 import *** | 禁止 `from module import *`，防止命名空间污染 |
 | **core 不导入 tools** | `core/` 不得 `import tools/` 中任何模块，通过 `tool_registry` 间接引用 |
 | **测试覆盖率** | `core/` ≥ 80%、`tools/` ≥ 80%、`channels/` ≥ 70%、`agents/` ≥ 70% |
+| **日志统一入口** | 所有模块通过 `from core.logging import get_logger; logger = get_logger(__name__)` 获取 logger，禁止 `print()`、禁止直接 `logging.getLogger()` |
+| **日志必带 trace_id** | 渠道层入口生成 `trace_id`（ContextVar），全链路自动附加，无需手动传参 |
+| **性能关键操作记日志** | LLM 调用、工具执行、渠道消息处理必须记录耗时（ms），使用 `core/logging.py` 提供的性能日志装饰器 |
+| **日志级别准确** | DEBUG=调试详情，INFO=业务节点，WARNING=异常可恢复，ERROR=需关注错误，CRITICAL=平台故障；禁止滥用 ERROR 记录可恢复异常 |
 
 **依赖方向**（单向无环）：
 ```
@@ -215,5 +220,36 @@ docs: 更新 progress.md — Phase 1 完成
 2. **配置格式**参考已有的 agent YAML 文件（见 `config/agents/` 目录）
 3. **工具权限**：只声明该智能体真正需要的工具，遵循最小权限原则
 4. **测试**：为新智能体创建 `tests/unit/test_agents/test_<name>.py`
+
+### 新增智能体 Checklist（防遗漏横切面）
+
+每次新增智能体时，逐项确认以下集成点已完成：
+
+- [ ] **配置**：创建 `config/agents/<name>.yaml`，声明 `allowed_tools`
+- [ ] **路由**：更新 `config/platform.yaml` 的 `dispatch.routes`，配置渠道→智能体映射
+- [ ] **日志**：所有模块使用 `from core.logging import get_logger; logger = get_logger(__name__)`
+- [ ] **Trace ID**：渠道入口调用 `set_trace_id()` 生成请求追踪 ID
+- [ ] **审计**：工具调用经过 `core/audit.py` 审计记录
+- [ ] **安全**：该 Phase 特定的安全需求已实现（参考 `docs/requirement.md` §3.5 演进路线）
+- [ ] **错误处理**：必要时在 `core/errors.py` 新增异常类型
+- [ ] **测试**：创建 `tests/unit/test_agents/test_<name>.py`，覆盖率 ≥ 70%
+- [ ] **Fixtures**：`tests/conftest.py` 新增该智能体所需的 Mock fixtures
+
+---
+
+# 9. Core 模块演进规则
+
+`core/` 是"极少改动"但**允许向后兼容扩展**的模块：
+
+| 允许的操作 | 禁止的操作 |
+|-----------|-----------|
+| 新增方法、新增异常类型、新增配置项 | 修改已有方法签名（参数增减、返回值变更） |
+| 新增可选参数（带默认值） | 删除已有公开接口 |
+| 扩展数据结构（新增字段） | 重命名已有类或函数 |
+
+**每次修改 `core/` 后**：
+1. 运行 `uv run pytest tests/ -v` 全量测试
+2. 确认已完成 Phase 的功能不受影响（回归验证）
+3. 在 commit message 中注明修改了 `core/` 的哪个模块及原因
 
 ---
