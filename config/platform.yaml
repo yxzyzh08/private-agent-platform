@@ -35,6 +35,9 @@ dispatch:
     - channel: telegram
       agent: cs_bot
 
+cli:
+  backend: "subprocess"  # "subprocess" (claude_code_cli) or "sdk" (claude_code_sdk)
+
 cui:
   host: "0.0.0.0"
   port: 3001
