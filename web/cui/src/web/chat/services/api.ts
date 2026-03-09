@@ -191,6 +191,12 @@ class ApiService {
     });
   }
 
+  async deleteSession(sessionId: string): Promise<{ success: boolean; sessionId: string }> {
+    return this.apiCall(`/api/conversations/${sessionId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async transcribeAudio(audioBase64: string, mimeType: string): Promise<{ text: string }> {
     return this.apiCall('/api/gemini/transcribe', {
       method: 'POST',

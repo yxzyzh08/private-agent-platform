@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StopCircle, Archive, Check, X } from 'lucide-react';
+import { StopCircle, Archive, Check, X, Trash2 } from 'lucide-react';
 import { Button } from '@/web/chat/components/ui/button';
 import { Input } from '@/web/chat/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/web/chat/components/ui/tooltip';
@@ -28,6 +28,7 @@ interface TaskItemProps {
   onCancel?: () => void;
   onArchive?: () => void;
   onUnarchive?: () => void;
+  onDelete?: () => void;
   onNameUpdate?: () => void;
   onPinToggle?: (isPinned: boolean) => void;
 }
@@ -49,6 +50,7 @@ export function TaskItem({
   onCancel,
   onArchive,
   onUnarchive,
+  onDelete,
   onStartRename,
   onCancelRename,
   onNameUpdate,
@@ -242,6 +244,33 @@ export function TaskItem({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              {onDelete && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-6 h-6 rounded-full hover:bg-destructive/20 hover:text-destructive"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (window.confirm('永久删除此任务？此操作不可撤销。')) {
+                            onDelete();
+                          }
+                        }}
+                        aria-label="Delete task"
+                        type="button"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>永久删除</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                 <MoreOptionsMenu
                   sessionId={_id}

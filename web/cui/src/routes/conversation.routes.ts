@@ -1,4 +1,6 @@
 import { Router, Request } from 'express';
+import { promises as fsPromises } from 'fs';
+import path from 'path';
 import { 
   StartConversationRequest,
   StartConversationResponse,
@@ -540,6 +542,53 @@ export function createConversationRoutes(
         requestId,
         sessionId,
         updates,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      next(error);
+    }
+  });
+
+  // Delete a session permanently
+  router.delete('/:sessionId', async (req: RequestWithRequestId, res, next) => {
+    const { sessionId } = req.params;
+    const requestId = req.requestId;
+
+    logger.debug('Delete session request', { requestId, sessionId });
+
+    try {
+      // Delete SQLite session info entry
+      await sessionInfoService.deleteSession(sessionId);
+
+      // Also delete the JSONL history file so syncMissingSessions() won't recreate it
+      try {
+        const projectsPath = path.join(historyReader.homePath, 'projects');
+        const projectDirs = await fsPromises.readdir(projectsPath);
+        for (const projectDir of projectDirs) {
+          const jsonlPath = path.join(projectsPath, projectDir, `${sessionId}.jsonl`);
+          try {
+            await fsPromises.unlink(jsonlPath);
+            logger.info('Deleted JSONL history file', { requestId, sessionId, jsonlPath });
+            break; // Found and deleted, stop searching
+          } catch {
+            // File not in this project dir, continue searching
+          }
+        }
+      } catch (fsError) {
+        logger.warn('Failed to delete JSONL history file', {
+          requestId,
+          sessionId,
+          error: fsError instanceof Error ? fsError.message : String(fsError)
+        });
+        // Non-fatal: session info already deleted, this is best-effort cleanup
+      }
+
+      logger.info('Session deleted successfully', { requestId, sessionId });
+
+      res.json({ success: true, sessionId });
+    } catch (error) {
+      logger.debug('Delete session failed', {
+        requestId,
+        sessionId,
         error: error instanceof Error ? error.message : String(error)
       });
       next(error);

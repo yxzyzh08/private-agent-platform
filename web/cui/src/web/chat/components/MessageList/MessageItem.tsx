@@ -178,14 +178,14 @@ export function MessageItem({
 
           if (block.type === 'thinking') {
             return (
-              <div key={blockId} className="flex gap-2 items-start">
-                <div className="w-4 h-5 flex-shrink-0 flex items-center justify-center text-foreground relative">
-                  <div className="mt-1 w-2.5 h-2.5 bg-foreground rounded-full" />
-                </div>
-                <div className="flex-1 min-w-0 prose prose-sm max-w-none italic text-muted-foreground dark:prose-invert">
+              <details key={blockId} className="mb-1">
+                <summary className="cursor-pointer text-xs text-muted-foreground italic select-none hover:text-foreground transition-colors">
+                  💭 思考过程
+                </summary>
+                <div className="mt-1 flex-1 min-w-0 prose prose-sm max-w-none italic text-muted-foreground dark:prose-invert pl-4 border-l border-muted">
                   <ReactMarkdown components={markdownComponents}>{block.thinking}</ReactMarkdown>
                 </div>
-              </div>
+              </details>
             );
           }
 

@@ -83,6 +83,23 @@ export function TaskList({
     }
   };
 
+  const handleDeleteTask = async (sessionId: string) => {
+    const element = document.querySelector(`[data-session-id="${sessionId}"]`) as HTMLElement;
+    if (element) {
+      element.style.display = 'none';
+    }
+
+    try {
+      await api.deleteSession(sessionId);
+      loadConversations(undefined, getFiltersForTab(activeTab));
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      if (element) {
+        element.style.display = '';
+      }
+    }
+  };
+
   const handleUnarchiveTask = async (sessionId: string) => {
     // Optimistically remove the item from the current view
     const element = document.querySelector(`[data-session-id="${sessionId}"]`) as HTMLElement;
@@ -220,6 +237,11 @@ export function TaskList({
             onUnarchive={
               conversation.status === 'completed' && activeTab === 'archive'
                 ? () => handleUnarchiveTask(conversation.sessionId)
+                : undefined
+            }
+            onDelete={
+              activeTab === 'archive'
+                ? () => handleDeleteTask(conversation.sessionId)
                 : undefined
             }
             isRenaming={renamingSessionId === conversation.sessionId}
