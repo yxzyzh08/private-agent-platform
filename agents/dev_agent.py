@@ -461,7 +461,73 @@ class DevAgent(BaseAgent):
             return "simple"
 
     async def on_event(self, event: Any) -> None:
-        """Handle platform events (e.g., bug_report from customer service bot)."""
+        """Handle platform events (e.g., bug_report from customer service bot).
+
+        For bug_report events: creates a GitHub Issue and triggers the analysis flow.
+        """
         event_type = getattr(event, "type", "")
         if event_type == "bug_report":
             logger.info("DevAgent received bug_report event: %s", getattr(event, "event_id", ""))
+            await self._create_issue_from_bug_report(event)
+
+    async def _create_issue_from_bug_report(self, event: Any) -> AgentResponse | None:
+        """Create a GitHub Issue from a bug_report event and trigger analysis.
+
+        Args:
+            event: Event with payload containing title, body, and optionally repo.
+
+        Returns:
+            AgentResponse from handle_issue, or None if issue creation fails.
+        """
+        payload = getattr(event, "payload", {}) or {}
+        title = payload.get("title", "Bug Report")
+        body = payload.get("body", "")
+        repo = payload.get("repo", "")
+
+        # Use first configured repo if not specified in event
+        if not repo and self.repos:
+            first = self.repos[0]
+            repo = f"{first.get('owner', '')}/{first.get('name', '')}"
+
+        if not repo:
+            logger.warning("Cannot create issue: no repo configured")
+            return None
+
+        # Create GitHub Issue via git_tool
+        from tools.git_tool import GitTool
+
+        parts = repo.split("/")
+        repo_owner = parts[0] if len(parts) >= 2 else ""
+        repo_name = parts[1] if len(parts) >= 2 else ""
+
+        git = GitTool()
+        result = await git.execute({
+            "operation": "create_issue",
+            "repo_owner": repo_owner,
+            "repo_name": repo_name,
+            "issue_title": title,
+            "issue_body": body,
+        })
+
+        if not result.success:
+            logger.error("Failed to create issue from bug_report: %s", result.error)
+            return None
+
+        # Build a Message to trigger the analysis flow
+        issue_number = (result.data or {}).get("issue_number", "?")
+        issue_url = (result.data or {}).get("issue_url", "")
+
+        msg = Message(
+            text=f"[Issue #{issue_number}] {title}\n\n{body}",
+            channel_id="event_bus",
+            user_id="system",
+            metadata={
+                "event_type": "issues.opened",
+                "issue_number": issue_number,
+                "issue_title": title,
+                "issue_body": body,
+                "issue_url": issue_url,
+                "repo_full_name": repo,
+            },
+        )
+        return await self.handle_issue(msg)

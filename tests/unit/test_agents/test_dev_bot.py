@@ -203,11 +203,12 @@ class TestDevAgentIssueAnalysis:
         assert "Unhandled" in resp.content
 
     async def test_on_event_bug_report(self):
-        """on_event handles bug_report events without error."""
+        """on_event handles bug_report events without error (no repos → early return)."""
         agent = DevAgent()
         event = MagicMock()
         event.type = "bug_report"
         event.event_id = "evt-123"
+        event.payload = {"title": "Test Bug", "body": "Details"}
         await agent.on_event(event)
 
 
@@ -519,3 +520,100 @@ class TestIssueExecution:
         agent = DevAgent(pending_store=store)
         resp = await agent.execute_issue("nonexistent#1")
         assert resp.finish_reason == "error"
+
+
+# --- Bug Report → Issue tests (Task 1B.6) ---
+
+
+class TestBugReportToIssue:
+    @patch("agents.dev_agent.DevAgent.handle_issue")
+    @patch("tools.git_tool.GitTool")
+    async def test_bug_report_creates_issue(self, mock_git_cls, mock_handle_issue, tmp_path):
+        """bug_report event creates a GitHub Issue and triggers analysis."""
+        from tools.base import ToolResult
+
+        mock_git = AsyncMock()
+        mock_git.execute.return_value = ToolResult(
+            success=True,
+            data={"issue_number": 100, "issue_url": "https://github.com/owner/repo/issues/100"},
+        )
+        mock_git_cls.return_value = mock_git
+
+        mock_handle_issue.return_value = AgentResponse(
+            agent_id="dev_bot", content="analyzed", finish_reason="stop"
+        )
+
+        config_data = {
+            "name": "dev_bot",
+            "github": {"repos": [{"owner": "owner", "name": "repo"}]},
+        }
+        config_file = tmp_path / "dev.yaml"
+        import yaml
+        config_file.write_text(yaml.dump(config_data))
+
+        notifier = AsyncMock()
+        notifier.send = AsyncMock(return_value=True)
+        store = PendingIssueStore(store_path=str(tmp_path / "pending.json"))
+        agent = DevAgent(
+            config_path=str(config_file),
+            notifier=notifier,
+            pending_store=store,
+        )
+
+        event = MagicMock()
+        event.type = "bug_report"
+        event.event_id = "evt-999"
+        event.payload = {
+            "title": "Login crash",
+            "body": "App crashes on login",
+        }
+
+        await agent.on_event(event)
+
+        mock_git.execute.assert_called_once()
+        call_params = mock_git.execute.call_args.args[0]
+        assert call_params["operation"] == "create_issue"
+        assert call_params["issue_title"] == "Login crash"
+
+        mock_handle_issue.assert_called_once()
+        msg_arg = mock_handle_issue.call_args.args[0]
+        assert msg_arg.metadata["issue_number"] == 100
+
+    @patch("tools.git_tool.GitTool")
+    async def test_bug_report_no_repo_configured(self, mock_git_cls):
+        """bug_report with no repo configured returns None."""
+        agent = DevAgent()
+        event = MagicMock()
+        event.type = "bug_report"
+        event.event_id = "evt-1"
+        event.payload = {"title": "Bug"}
+
+        await agent.on_event(event)
+        mock_git_cls.assert_not_called()
+
+    @patch("tools.git_tool.GitTool")
+    async def test_bug_report_issue_creation_fails(self, mock_git_cls, tmp_path):
+        """Failed issue creation logs error and returns None."""
+        from tools.base import ToolResult
+
+        mock_git = AsyncMock()
+        mock_git.execute.return_value = ToolResult(success=False, error="API error")
+        mock_git_cls.return_value = mock_git
+
+        config_data = {
+            "name": "dev_bot",
+            "github": {"repos": [{"owner": "o", "name": "r"}]},
+        }
+        config_file = tmp_path / "dev.yaml"
+        import yaml
+        config_file.write_text(yaml.dump(config_data))
+
+        agent = DevAgent(config_path=str(config_file))
+
+        event = MagicMock()
+        event.type = "bug_report"
+        event.event_id = "evt-2"
+        event.payload = {"title": "Bug"}
+
+        await agent.on_event(event)
+        mock_git.execute.assert_called_once()

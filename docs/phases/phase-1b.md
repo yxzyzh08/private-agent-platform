@@ -227,7 +227,7 @@ uv run pytest tests/unit/test_session_rotation.py -v
 
 ### Task 1B.6: 实现 bug_report 事件自动创建 Issue
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.3, Phase 1A（event_bus 已存在）
 **产出文件**: `agents/dev_agent.py` 扩展
 
@@ -246,7 +246,7 @@ uv run pytest tests/unit/test_agents/test_dev_bot.py -v -k "test_bug_report_to_i
 
 ### Task 1B.6a: Session 轮换集成测试
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.5a, Task 1B.5
 **产出文件**: `tests/unit/test_session_rotation.py` 扩展, `tests/integration/test_session_rotation.py`
 
@@ -268,7 +268,7 @@ uv run pytest tests/unit/test_session_rotation.py tests/integration/test_session
 
 ### Task 1B.7: Issue 流程集成测试
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.5, Task 1B.6, Task 1B.6a
 **产出文件**: `tests/unit/test_agents/test_dev_bot.py` 扩展
 
