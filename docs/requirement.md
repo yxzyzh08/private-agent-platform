@@ -78,7 +78,7 @@
 
 | 智能体 | 执行引擎 | Phase | 理由 |
 |--------|---------|-------|------|
-| 开发机器人 | Claude Code CLI（通过 cui Web UI 交互） | Phase 1A/1B | 1A: Web UI 驱动的开发任务；1B: GitHub Issue 自动化 |
+| 开发机器人 | Claude Code CLI（通过 cui Web UI 交互） | Phase 1A/1B | 1A: 平台基础设施 + cui 部署（Owner 直接使用 CLI）；1B: GitHub Issue 自动化 |
 | 知识库机器人 | Claude API（asyncio while 循环编排） | Phase 2 | 文档提取+知识库管理，线性 tool_use 循环 |
 | 客服机器人 | Claude API（asyncio while 循环编排） | Phase 3 | 线性 tool_use 循环，朴素实现调试成本低；Phase 5 视需求升级 LangGraph |
 | 营销机器人 | Claude API + Playwright | Phase 4 | 需要浏览器控制，API 负责内容生成 |
@@ -359,7 +359,9 @@ platforms:
 
 **功能需求**:
 
-**Web UI 驱动（Phase 1A — 核心场景）**:
+**Web UI 驱动（Phase 1A — Owner 直接通过 cui 使用 Claude Code，不经过 AgentRuntime）**:
+
+> **Mode A 是开发机器人的主要使用模式**，覆盖所有开发场景：新产品/新项目创建、新功能开发、代码重构、Bug 修复、性能优化等。cui 支持**多项目切换**——每个会话可指定不同的工作目录，Owner 可以在同一个 Web UI 中管理多个独立项目。其能力等同于 Claude Code CLI 的完整功能集，平台提供部署、认证和通知基础设施。Mode B（GitHub Issue 自动化）是 Mode A 的补充，自动化处理特定的 Issue 驱动工作流。
 
 | # | 功能 | 优先级 |
 |---|------|--------|
@@ -371,7 +373,7 @@ platforms:
 | DV-6 | 创建 Pull Request 或直接提交到指定分支 | P0 |
 | DV-7 | 后台任务执行（关闭浏览器后任务继续），通过 ntfy 推送完成通知 | P1 |
 
-**GitHub Issue 驱动（Phase 1B — 自动化升级）**:
+**GitHub Issue 驱动（Phase 1B — 开发机器人正式上线，通过 AgentRuntime 编排）**:
 
 | # | 功能 | 优先级 |
 |---|------|--------|
@@ -949,11 +951,11 @@ private-agent-platform/
 
 ## 12. 开发路线图与验收标准
 
-### Phase 1A — 平台骨架 + Web UI 开发工具
+### Phase 1A — 平台基础设施 + cui Web UI 部署
 
 **前置条件**：完成 Claude Code CLI POC（10 个模拟任务逐个测试 + 运行行为观察），通过后再进入正式开发。
 
-**目标**: 搭建平台核心基础设施，集成 cui Web UI 让 Owner 通过浏览器与 Claude Code 交互完成开发任务
+**目标**: 搭建平台核心基础设施（事件总线、工具注册、配置系统、日志追踪），部署 cui Web UI 让 Owner 通过浏览器直接使用 Claude Code CLI
 
 | # | 验收用例 | 预期结果 |
 |---|---------|---------|

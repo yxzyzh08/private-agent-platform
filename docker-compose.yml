@@ -23,9 +23,6 @@ services:
       retries: 3
 
   cui:
-    # cui 由 systemd 服务管理（VPN 访问 + ntfy 推送已配置）
-    # 如需 Docker 模式启动: docker-compose --profile docker-cui up -d
-    profiles: ["docker-cui"]
     build:
       context: ./web/cui
       dockerfile: Dockerfile
@@ -34,11 +31,20 @@ services:
     env_file:
       - .env
     environment:
-      - HOST=0.0.0.0
-      - PORT=3001
+      - HOME=/home/ecs-user
+      - LOG_LEVEL=info
+    user: "1000:1000"
     volumes:
-      - .:/workspace
-      - claude-sessions:/root/.claude
+      # 项目目录 — 支持所有项目的开发
+      - /home/ecs-user/github_projects:/home/ecs-user/github_projects
+      # Claude CLI 会话数据和配置
+      - /home/ecs-user/.claude:/home/ecs-user/.claude
+      - /home/ecs-user/.claude.json:/home/ecs-user/.claude.json
+      # cui 配置（authToken、ntfy 等）
+      - /home/ecs-user/.cui:/home/ecs-user/.cui
+      # Git 和 SSH（Claude CLI 执行 git 操作需要）
+      - /home/ecs-user/.gitconfig:/home/ecs-user/.gitconfig:ro
+      - /home/ecs-user/.ssh:/home/ecs-user/.ssh:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
@@ -61,4 +67,3 @@ services:
 
 volumes:
   redis-data:
-  claude-sessions:
