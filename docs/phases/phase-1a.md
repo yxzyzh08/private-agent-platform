@@ -697,12 +697,12 @@ docker-compose config  # 验证配置语法
 
 ### Task 1.26: Post-Phase 文档同步 + Git Tag
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1.25
 
 **验收标准**:
-- [ ] 本文件所有任务标记 `[x]`
-- [ ] `docs/progress.md` Quick Status 更新
-- [ ] 测试数更新到 Test Count History
-- [ ] `git tag -a v0.1.0 -m "Phase 1A: 平台骨架 + Web UI 开发工具"`
-- [ ] 推送 tag 到远程
+- [x] 本文件所有任务标记 `[x]`
+- [x] `docs/progress.md` Quick Status 更新
+- [x] 测试数更新到 Test Count History
+- [x] `git tag -a v0.1.0 -m "Phase 1A: 平台骨架 + Web UI 开发工具"`
+- [x] 推送 tag 到远程
