@@ -1,7 +1,7 @@
 # 个人多智能体平台 — 需求文档
 
-**版本**: v0.8
-**日期**: 2026-03-08
+**版本**: v0.9
+**日期**: 2026-03-09
 **状态**: 已确认，开发中
 
 ---
@@ -78,7 +78,7 @@
 
 | 智能体 | 执行引擎 | Phase | 理由 |
 |--------|---------|-------|------|
-| 开发机器人 | Claude Code CLI（通过 cui Web UI 交互） | Phase 1A/1B | 1A: 平台基础设施 + cui 部署（Owner 直接使用 CLI）；1B: GitHub Issue 自动化 |
+| 开发机器人 | Claude Code CLI / Agent SDK（可配置切换） | Phase 1A/1B | 1A: cui 直接使用 CLI；1B: GitHub Issue 自动化，支持 subprocess 或 SDK 双轨执行 |
 | 知识库机器人 | Claude API（asyncio while 循环编排） | Phase 2 | 文档提取+知识库管理，线性 tool_use 循环 |
 | 客服机器人 | Claude API（asyncio while 循环编排） | Phase 3 | 线性 tool_use 循环，朴素实现调试成本低；Phase 5 视需求升级 LangGraph |
 | 营销机器人 | Claude API + Playwright | Phase 4 | 需要浏览器控制，API 负责内容生成 |
@@ -224,7 +224,7 @@ class ToolCall:
 | Phase | 新增配置需求 | 实现位置 |
 |-------|------------|---------|
 | 1A | `platform.yaml` 基础结构 | `config/platform.yaml` |
-| 1B | `dispatch.routes` 新增 GitHub Webhook 路由、`dev.yaml` | `config/` |
+| 1B | `dispatch.routes` 新增 GitHub Webhook 路由、`dev.yaml`、`session_rotation` 配置 | `config/` |
 | 2 | `knowledge_base.yaml`、知识库 sources 配置 | `config/agents/` |
 | 3 | `customer_service.yaml`、Telegram 渠道配置 | `config/agents/` |
 | 4 | `marketing.yaml`、调度 cron 配置 | `config/agents/` |
@@ -234,7 +234,7 @@ class ToolCall:
 | Phase | 新增 Fixtures / Mock | 实现位置 |
 |-------|---------------------|---------|
 | 1A | `mock_config`, `tmp_data_dir`, `event_loop` | `tests/conftest.py` |
-| 1B | `mock_github_webhook`, `mock_claude_cli` | `tests/conftest.py` |
+| 1B | `mock_github_webhook`, `mock_claude_cli`, `mock_claude_sdk`, `mock_session_rotator` | `tests/conftest.py` |
 | 2 | `mock_chromadb`, `mock_git_repo` | `tests/conftest.py` |
 | 3 | `mock_telegram`, `mock_knowledge_base` | `tests/conftest.py` |
 | 4 | `mock_playwright`, `mock_scheduler` | `tests/conftest.py` |
@@ -244,7 +244,7 @@ class ToolCall:
 | Phase | 新增异常类型 | 实现位置 |
 |-------|------------|---------|
 | 1A | `PlatformError`, `ToolError`, `ChannelError`, `PermissionDeniedError`, `RateLimitError`, `ValidationError` | `core/errors.py` |
-| 1B | `WebhookVerificationError` | `core/errors.py` |
+| 1B | `WebhookVerificationError`, `SessionRotationError` | `core/errors.py` |
 | 2 | `KnowledgeBaseError`（索引失败、查询超时） | `core/errors.py` |
 | 3 | `EscalationError`（升级通知失败）、`SessionError` | `core/errors.py` |
 | 4 | `BrowserError`（页面加载失败）、`CookieExpiredError` | `core/errors.py` |
@@ -383,9 +383,14 @@ platforms:
 | DV-11 | Issue 下自动评论进度（分析中 → 执行中 → 已完成/失败） | P0 |
 | DV-12 | 接收事件总线的 bug_report 自动创建 Issue | P1 |
 | DV-13 | 支持多个代码仓库（通过配置文件定义列表） | P2（Phase 5）|
+| DV-14 | Claude Agent SDK 集成：封装 `query()` 调用、Hooks 回调（PreCompact/Stop）、结构化返回值 | P0 |
+| DV-15 | 复杂度自适应执行策略：简单 Issue 单次调用、中等 Issue 轻量分解、复杂 Issue 完整分解 + 轮换 | P0 |
+| DV-16 | Session 轮换：任务分解 + 结果检测自动续接（进度摘要 → 续接 prompt → 新 session 继续） | P1 |
+| DV-17 | CUI /clear 命令支持：前端拦截 → 后端终止当前 CLI 子进程 → 启动新 session | P1 |
 
 **工具权限**（Phase 1B 自动化流程使用）:
 - ✅ `claude_code_cli` — 核心执行引擎（子进程调用）
+- ✅ `claude_code_sdk` — Agent SDK 执行引擎（编程式调用，可配置替代 CLI）
 - ✅ `git` — 仓库操作
 - ✅ `github_api` — Issue / PR / Webhook
 - ✅ `event_bus.subscribe` — 监听 bug_report 事件
@@ -485,6 +490,7 @@ commands:                        # Owner Telegram 命令
 | `http_api` | 通用 HTTP 请求（GET/POST/webhook） | httpx |
 | `git` | git clone / commit / push / PR 创建 | PyGitHub + git |
 | `claude_code_cli` | 启动 Claude Code 子进程，管理会话 | claude binary |
+| `claude_code_sdk` | Claude Agent SDK 编程式调用，支持 Hooks 和结构化返回 | claude-code-sdk |
 | `code_exec` | 沙箱内执行代码（Python / Bash） | Docker sandbox |
 | `scheduler` | 注册 / 取消定时任务 | APScheduler |
 | `send_message` | 向指定渠道发送消息（Telegram） | python-telegram-bot |
@@ -984,6 +990,10 @@ private-agent-platform/
 | AC-1B.3 | 半自动流程 | Issue 分析 → ntfy 通知 Owner → Owner 通过 Web UI 确认 → Claude Code 执行 |
 | AC-1B.4 | Issue 评论 | Issue 下自动评论进度（分析中 → 执行中 → 已完成/失败） |
 | AC-1B.5 | PR 关联 | 修复完成后自动创建 PR 并关联 Issue |
+| AC-1B.6 | SDK 可用 | `claude_code_sdk` 工具可通过 `query()` 执行代码任务并返回结构化结果 |
+| AC-1B.7 | CUI /clear | 在 cui 中输入 /clear 后当前 session 终止，新 session 启动，界面显示确认 |
+| AC-1B.8 | 复杂度自适应 | 简单 Issue 单次调用完成；复杂 Issue 自动分解为多步执行 |
+| AC-1B.9 | Session 轮换 | CLI 调用因 max_turns 停止后，自动生成进度摘要并启动新 session 续接 |
 
 ---
 
@@ -1104,4 +1114,4 @@ async def test_claude_api_real():
 ---
 
 
-*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-08（v0.8 新增 §3.5 横切面需求演进路线，明确每个 Phase 的安全/存储/配置/测试/错误类型扩展需求）*
+*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-09（v0.9 新增 DV-14~DV-17 SDK 双轨执行/Session 轮换/CUI /clear 支持；AC-1B.6~AC-1B.9 验收用例；claude_code_sdk 工具）*

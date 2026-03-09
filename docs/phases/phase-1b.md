@@ -3,7 +3,7 @@
 **分支**: `feat/phase-1b-issue-automation`
 **Tag**: `v0.2.0`
 **前置**: Phase 1A 完成
-**目标**: 平台首个真正的智能体（DevAgent）上线 — GitHub 创建 Issue 后，开发机器人通过 AgentRuntime 编排：自动分析 → ntfy 通知 Owner → Owner 通过 Web UI 确认 → 执行修复并提 PR（半自动模式）
+**目标**: 平台首个真正的智能体（DevAgent）上线 — GitHub 创建 Issue 后，开发机器人通过 AgentRuntime 编排：自动分析 → ntfy 通知 Owner → Owner 通过 Web UI 确认 → 执行修复并提 PR（半自动模式）。支持 Claude Agent SDK 双轨执行和 Session 轮换
 **预计时长**: 2 周
 
 **完成条件**: GitHub 创建 Issue 后，开发机器人自动分析 Issue 类型 → ntfy 通知 Owner → Owner 通过 cui Web UI 确认 → Claude Code 执行修复 → Issue 下自动评论进度 → 自动创建 PR 并关联 Issue
@@ -117,28 +117,111 @@ uv run pytest tests/unit/test_agents/test_dev_bot.py -v -k "test_owner_confirm"
 
 ---
 
-### Task 1B.5: 实现 Claude Code CLI 执行 + PR 创建
+### Task 1B.4a: Claude Agent SDK 集成评估 POC
 
 **状态**: [ ] 未开始
-**依赖**: Task 1B.4, Phase 1A（claude_code_cli 工具已存在）
+**依赖**: Phase 1A
+**产出文件**: `tools/claude_code_sdk.py`, `tests/unit/test_tools/test_claude_code_sdk.py`
+
+**描述**:
+安装 Claude Agent SDK，编写最小 POC 验证 `query()` 和 Hooks 在目标环境可用。封装为 `BaseTool` 子类，与 `claude_code_cli` 保持接口一致，支持通过配置切换。
+
+**验收标准**:
+- [ ] `claude-code-sdk` 包安装成功并加入 `pyproject.toml`
+- [ ] `tools/claude_code_sdk.py` 实现 `ClaudeCodeSDK(BaseTool)`，`execute()` 调用 SDK `query()`
+- [ ] Hooks 回调（PreCompact、Stop、PostToolUse）正常触发并记录日志
+- [ ] 返回结构化结果：`session_id`、`cost_usd`、`num_turns`、`compact_count`、`needs_rotation`
+- [ ] 对比 subprocess 和 SDK 执行同一任务的结果，记录评估结论
+- [ ] `config/platform.yaml` 新增 `cli.backend: "subprocess" | "sdk"` 配置项
+
+**测试命令**:
+```bash
+uv run pytest tests/unit/test_tools/test_claude_code_sdk.py -v
+```
+
+---
+
+### Task 1B.4b: CUI /clear 命令支持
+
+**状态**: [ ] 未开始
+**依赖**: Phase 1A
+**产出文件**: `services/cui/` 前后端修改
+
+**描述**:
+在 CUI 层面实现 /clear 等效功能：前端拦截命令，后端终止当前 CLI 子进程并启动新 session。
+
+**验收标准**:
+- [ ] CUI 前端拦截 `/clear` 命令（不发送到 CLI）
+- [ ] 调用 CUI 后端 API 终止当前 CLI 子进程（SIGTERM）
+- [ ] 后端创建新 session 记录
+- [ ] 下一次用户输入时启动新 CLI 子进程
+- [ ] 用户看到"上下文已清除，新会话已启动"确认消息
+
+**测试命令**:
+```bash
+# 手动验证：在 cui 中输入 /clear，确认 session 重启
+```
+
+---
+
+### Task 1B.5: 实现 Claude Code CLI/SDK 执行 + PR 创建
+
+**状态**: [ ] 未开始
+**依赖**: Task 1B.4, Task 1B.4a, Phase 1A（claude_code_cli 工具已存在）
 **产出文件**: `agents/dev_agent.py` 扩展
 
 **描述**:
-Owner 确认后，调用 `claude_code_cli` 工具执行代码修复，运行测试，创建 PR 并在 Issue 下评论最终状态。
+Owner 确认后，调用 `claude_code_cli` 或 `claude_code_sdk`（根据配置）执行代码修复，运行测试，创建 PR 并在 Issue 下评论最终状态。支持复杂度自适应执行策略和 Session 轮换集成。
 
 **验收标准**:
-- [ ] 调用 `claude_code_cli` 传入 Issue 内容和仓库路径
+- [ ] 调用 `claude_code_cli` 或 `claude_code_sdk` 传入 Issue 内容和仓库路径（根据 `cli.backend` 配置）
 - [ ] 执行过程中 Issue 评论"执行中"
 - [ ] 执行完成后运行测试验证
 - [ ] 执行失败时 ntfy 通知 Owner 并记录错误详情
 - [ ] 通过 `git_tool` 创建 PR（标题关联 Issue 编号）
 - [ ] Issue 下评论"已完成"并附 PR 链接
 - [ ] PR 描述包含 Issue 分析摘要和修改说明
+- [ ] SDK 执行支持：当 `cli.backend=sdk` 时通过 `claude_code_sdk` 工具执行
+- [ ] 复杂度自适应：简单 Issue 单次调用（`max_turns=100`）；中等 Issue 轻量分解（2-3 步）；复杂 Issue 完整分解 + 轮换
+- [ ] Session 轮换集成：通过 `SessionRotator.execute_with_rotation()` 执行，轮换信息记录到 Issue 评论
 
 **测试命令**:
 ```bash
 uv run pytest tests/unit/test_agents/test_dev_bot.py -v -k "test_issue_execution"
 ```
+
+---
+
+### Task 1B.5a: Session 轮换核心模块
+
+**状态**: [ ] 未开始
+**依赖**: Task 1B.4a
+**产出文件**: `core/session_rotation.py`, `tests/unit/test_session_rotation.py`
+
+**描述**:
+实现 Session 轮换的核心逻辑：轮换配置、进度摘要生成、续接 prompt 构建、轮换生命周期管理。
+
+**验收标准**:
+- [ ] `RotationConfig` dataclass：`context_threshold`（默认 0.80）、`max_rotations`（默认 3）、`summary_max_tokens`（默认 2000）
+- [ ] `SessionRotator.execute_with_rotation()`：封装 CLI/SDK 调用 + 轮换逻辑
+- [ ] 进度摘要通过 LLM 生成（从 CLI/SDK 输出中提取已完成工作和剩余任务）
+- [ ] 续接 prompt 包含原始任务 + 进度摘要 + 明确的续接指令
+- [ ] 轮换次数超过 `max_rotations` 返回失败结果
+- [ ] 每次轮换记录 `RotationRecord`（轮次、原因、摘要）
+- [ ] 轮换配置从 `config/platform.yaml` 的 `session_rotation` 节读取
+
+**测试命令**:
+```bash
+uv run pytest tests/unit/test_session_rotation.py -v
+```
+
+**测试用例**:
+- test_rotation_config_defaults — 默认配置值正确
+- test_execute_no_rotation — 正常执行无需轮换
+- test_execute_single_rotation — 模拟 max_turns 停止 → 摘要 → 续接 → 成功
+- test_execute_max_rotations_exceeded — 超过最大轮换次数报错
+- test_progress_summary_generation — 进度摘要 LLM 调用（mock）
+- test_continuation_prompt_format — 续接 prompt 格式正确
 
 ---
 
@@ -161,12 +244,32 @@ uv run pytest tests/unit/test_agents/test_dev_bot.py -v -k "test_bug_report_to_i
 
 ---
 
+### Task 1B.6a: Session 轮换集成测试
+
+**状态**: [ ] 未开始
+**依赖**: Task 1B.5a, Task 1B.5
+**产出文件**: `tests/unit/test_session_rotation.py` 扩展, `tests/integration/test_session_rotation.py`
+
+**验收标准**:
+- [ ] SDK Hooks 触发轮换：模拟 `PreCompact` Hook 触发 → `SessionRotator` 记录事件
+- [ ] subprocess 结果检测：模拟 CLI 返回 `error_max_turns` → 摘要 → 续接 → 成功
+- [ ] 复杂度自适应路由：简单 Issue 走单次调用、复杂 Issue 走分解+轮换
+- [ ] 多次轮换：验证轮换计数和最大次数限制
+- [ ] 所有测试通过，`core/session_rotation.py` 覆盖率 ≥ 80%
+
+**测试命令**:
+```bash
+uv run pytest tests/unit/test_session_rotation.py tests/integration/test_session_rotation.py -v --cov=core/session_rotation --cov-report=term-missing
+```
+
+---
+
 ## 1B.3 — 集成与验证
 
 ### Task 1B.7: Issue 流程集成测试
 
 **状态**: [ ] 未开始
-**依赖**: Task 1B.5, Task 1B.6
+**依赖**: Task 1B.5, Task 1B.6, Task 1B.6a
 **产出文件**: `tests/unit/test_agents/test_dev_bot.py` 扩展
 
 **验收标准**:
@@ -226,12 +329,12 @@ uv run python -c "from main import create_app; app = create_app(); print('App cr
 
 **验收标准**:
 - [ ] **安全**：GitHub Webhook 签名验证（`X-Hub-Signature-256`）已实现，验证失败返回 403 并记录日志
-- [ ] **错误**：`core/errors.py` 新增 `WebhookVerificationError` 异常类型
+- [ ] **错误**：`core/errors.py` 新增 `WebhookVerificationError`、`SessionRotationError` 异常类型
 - [ ] **日志**：`channels/github_webhook/channel.py` 和 `agents/dev_agent.py` 使用 `get_logger(__name__)`
 - [ ] **Trace ID**：GitHub Webhook 入口调用 `set_trace_id()` 生成请求追踪 ID
-- [ ] **审计**：`claude_code_cli` 和 `git_tool` 的工具调用经过审计记录
-- [ ] **测试**：`tests/conftest.py` 新增 `mock_github_webhook`、`mock_claude_cli` fixtures
-- [ ] **配置**：`config/platform.yaml` 的 `dispatch.routes` 包含 GitHub Webhook 路由
+- [ ] **审计**：`claude_code_cli`、`claude_code_sdk` 和 `git_tool` 的工具调用经过审计记录
+- [ ] **测试**：`tests/conftest.py` 新增 `mock_github_webhook`、`mock_claude_cli`、`mock_claude_sdk`、`mock_session_rotator` fixtures
+- [ ] **配置**：`config/platform.yaml` 的 `dispatch.routes` 包含 GitHub Webhook 路由；`cli.backend` 配置项可用
 
 **测试命令**:
 ```bash

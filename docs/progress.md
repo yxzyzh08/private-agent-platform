@@ -40,7 +40,7 @@
 | Phase | 目标 | 状态 | 进度 | 详细计划 |
 |-------|------|------|------|---------|
 | Phase 1A | 平台基础设施 + cui Web UI 部署 | ✅ 完成 | 28/28 | [phase-1a.md](phases/phase-1a.md) |
-| Phase 1B | 开发机器人 — GitHub Issue 自动化 | ⚪ 未开始 | 0/11 | [phase-1b.md](phases/phase-1b.md) |
+| Phase 1B | 开发机器人 — GitHub Issue 自动化 | ⚪ 未开始 | 0/15 | [phase-1b.md](phases/phase-1b.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |
