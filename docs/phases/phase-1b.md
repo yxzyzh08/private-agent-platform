@@ -88,7 +88,7 @@ uv run pytest tests/unit/test_agents/test_dev_bot.py -v -k "test_issue_analysis"
 
 ### Task 1B.4: 实现 ntfy 通知 + Owner 确认/拒绝流程
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.3
 **产出文件**: `agents/dev_agent.py` 扩展, `core/notifier.py`
 
