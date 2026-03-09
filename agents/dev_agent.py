@@ -14,6 +14,7 @@ from typing import Any
 from agents.base_agent import BaseAgent
 from channels.base import Message
 from core.agent_runtime import AgentResponse
+from core.config import get_config
 from core.logging import get_logger
 from core.notifier import Notifier
 
@@ -45,6 +46,33 @@ STATUS_FAILED = "failed"
 
 # Default confirmation timeout: 24 hours
 CONFIRMATION_TIMEOUT_SECONDS = 24 * 60 * 60
+
+# Prompt for Claude Code to fix an issue
+ISSUE_EXECUTION_PROMPT = """Fix the following GitHub Issue.
+
+Issue #{number}: {title}
+
+Description:
+{body}
+
+Analysis:
+{analysis}
+
+Instructions:
+1. Read the relevant code to understand the problem
+2. Implement the fix
+3. Run tests to verify the fix works
+4. Commit changes with a descriptive message referencing Issue #{number}
+
+Work in: {working_directory}
+"""
+
+# Max turns by complexity
+_COMPLEXITY_MAX_TURNS = {
+    "simple": 100,
+    "medium": 150,
+    "complex": 200,
+}
 
 
 class PendingIssueStore:
@@ -284,6 +312,153 @@ class DevAgent(BaseAgent):
             tags=["robot", "github"],
             click_url=issue_url,
         )
+
+    async def execute_issue(self, issue_key: str) -> AgentResponse:
+        """Execute a code fix for an approved issue.
+
+        Uses claude_code_cli or claude_code_sdk based on ``cli.backend`` config.
+        After execution, creates a PR via git_tool and updates the issue store.
+
+        Args:
+            issue_key: Issue identifier (e.g., "owner/repo#42").
+
+        Returns:
+            AgentResponse with execution result.
+        """
+        issue = self._pending_store.get(issue_key)
+        if not issue or issue.get("status") != STATUS_APPROVED:
+            logger.warning("Cannot execute issue %s: not approved", issue_key)
+            return AgentResponse(
+                agent_id=self.agent_id,
+                content=f"Issue {issue_key} is not in approved state",
+                finish_reason="error",
+            )
+
+        self._pending_store.update_status(issue_key, STATUS_EXECUTING)
+        logger.info("Starting execution for issue %s", issue_key)
+
+        repo = issue.get("repo", "")
+        issue_number = issue.get("issue_number", "?")
+        title = issue.get("title", "")
+        body = issue.get("body", "")
+        analysis = issue.get("analysis", "")
+        complexity = self._parse_complexity(analysis)
+
+        # Determine working directory from first configured repo
+        working_directory = "."
+        if self.repos:
+            working_directory = self.repos[0].get("working_directory", ".")
+
+        prompt = ISSUE_EXECUTION_PROMPT.format(
+            number=issue_number,
+            title=title,
+            body=body,
+            analysis=analysis,
+            working_directory=working_directory,
+        )
+
+        max_turns = _COMPLEXITY_MAX_TURNS.get(complexity, 100)
+
+        try:
+            tool = self._get_execution_tool()
+            tool_result = await tool.execute({
+                "prompt": prompt,
+                "working_directory": working_directory,
+                "max_turns": max_turns,
+            })
+
+            if not tool_result.success:
+                self._pending_store.update_status(issue_key, STATUS_FAILED)
+                logger.error("Execution failed for %s: %s", issue_key, tool_result.error)
+                await self._notifier.send(
+                    message=f"Execution failed for Issue #{issue_number}: {tool_result.error}",
+                    title=f"[DevBot] Issue #{issue_number} execution failed",
+                    priority="high",
+                    tags=["warning"],
+                )
+                return AgentResponse(
+                    agent_id=self.agent_id,
+                    content=tool_result.error or "Execution failed",
+                    finish_reason="error",
+                )
+
+            # Create PR via git_tool
+            pr_result = await self._create_pr(issue_key, issue)
+
+            self._pending_store.update_status(issue_key, STATUS_COMPLETED)
+            logger.info("Issue %s execution completed", issue_key)
+
+            result_data = {
+                "execution": tool_result.data,
+                "pr": pr_result.data if pr_result.success else None,
+            }
+
+            return AgentResponse(
+                agent_id=self.agent_id,
+                content=json.dumps(result_data, default=str),
+                finish_reason="stop",
+            )
+
+        except Exception as e:
+            self._pending_store.update_status(issue_key, STATUS_FAILED)
+            logger.error("Execution error for %s: %s", issue_key, e)
+            return AgentResponse(
+                agent_id=self.agent_id,
+                content=f"Execution error: {e}",
+                finish_reason="error",
+            )
+
+    def _get_execution_tool(self) -> Any:
+        """Return the appropriate execution tool based on cli.backend config."""
+        config = get_config()
+        backend = config.get("cli", {}).get("backend", "subprocess")
+
+        if backend == "sdk":
+            from tools.claude_code_sdk import ClaudeCodeSDKTool
+            return ClaudeCodeSDKTool()
+
+        from tools.claude_code_cli import ClaudeCodeCliTool
+        return ClaudeCodeCliTool()
+
+    async def _create_pr(self, issue_key: str, issue: dict) -> Any:
+        """Create a PR for the completed issue fix."""
+        from tools.git_tool import GitTool
+
+        repo = issue.get("repo", "")
+        issue_number = issue.get("issue_number", "?")
+        title = issue.get("title", "")
+        analysis = issue.get("analysis", "")
+
+        # Parse owner/name from repo
+        parts = repo.split("/") if repo else []
+        repo_owner = parts[0] if len(parts) >= 2 else ""
+        repo_name = parts[1] if len(parts) >= 2 else ""
+
+        branch_name = f"fix/issue-{issue_number}"
+
+        git = GitTool()
+        return await git.execute({
+            "operation": "create_pr",
+            "repo_owner": repo_owner,
+            "repo_name": repo_name,
+            "pr_title": f"Fix #{issue_number}: {title}",
+            "pr_body": (
+                f"Closes #{issue_number}\n\n"
+                f"## Analysis\n{analysis}\n\n"
+                f"Automated fix by DevBot."
+            ),
+            "pr_base": "main",
+            "pr_head": branch_name,
+        })
+
+    @staticmethod
+    def _parse_complexity(analysis: str) -> str:
+        """Extract complexity from analysis JSON, default to 'simple'."""
+        try:
+            data = json.loads(analysis)
+            return data.get("complexity", "simple")
+        except (json.JSONDecodeError, TypeError):
+            return "simple"
 
     async def on_event(self, event: Any) -> None:
         """Handle platform events (e.g., bug_report from customer service bot)."""

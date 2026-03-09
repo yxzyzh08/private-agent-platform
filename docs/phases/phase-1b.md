@@ -166,7 +166,7 @@ uv run pytest tests/unit/test_tools/test_claude_code_sdk.py -v
 
 ### Task 1B.5: 实现 Claude Code CLI/SDK 执行 + PR 创建
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.4, Task 1B.4a, Phase 1A（claude_code_cli 工具已存在）
 **产出文件**: `agents/dev_agent.py` 扩展
 

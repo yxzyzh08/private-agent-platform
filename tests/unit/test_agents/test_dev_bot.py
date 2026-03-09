@@ -14,6 +14,9 @@ from agents.base_agent import BaseAgent
 from agents.dev_agent import (
     CONFIRMATION_TIMEOUT_SECONDS,
     STATUS_APPROVED,
+    STATUS_COMPLETED,
+    STATUS_EXECUTING,
+    STATUS_FAILED,
     STATUS_PENDING,
     STATUS_REJECTED,
     STATUS_TIMEOUT,
@@ -370,3 +373,149 @@ class TestNtfyNotification:
         call_kwargs = notifier.send.call_args
         assert "Critical bug" in (call_kwargs.kwargs.get("message") or call_kwargs.args[0])
         assert call_kwargs.kwargs.get("priority") == "high"
+
+
+# --- Issue Execution tests (Task 1B.5) ---
+
+
+def _make_approved_issue(store, tmp_path, number=42, complexity="simple"):
+    """Helper: create an approved issue in the store."""
+    issue_key = f"owner/repo#{number}"
+    store.add(issue_key, {
+        "status": STATUS_APPROVED,
+        "issue_number": number,
+        "title": f"Fix bug #{number}",
+        "body": "Something is broken",
+        "repo": "owner/repo",
+        "issue_url": f"https://github.com/owner/repo/issues/{number}",
+        "analysis": json.dumps({
+            "type": "bug",
+            "summary": "A bug",
+            "complexity": complexity,
+            "suggested_approach": "Fix it",
+        }),
+        "created_at": time.time(),
+    })
+    return issue_key
+
+
+class TestIssueExecution:
+    @patch("agents.dev_agent.DevAgent._create_pr")
+    @patch("agents.dev_agent.DevAgent._get_execution_tool")
+    async def test_execute_issue_success(self, mock_get_tool, mock_create_pr, tmp_path):
+        """Approved issue executes via CLI/SDK tool and creates PR."""
+        from tools.base import ToolResult
+
+        mock_tool = AsyncMock()
+        mock_tool.execute.return_value = ToolResult(
+            success=True,
+            data={"result": "Bug fixed", "session_id": "sess-1"},
+        )
+        mock_get_tool.return_value = mock_tool
+
+        mock_create_pr.return_value = ToolResult(
+            success=True,
+            data={"pr_url": "https://github.com/owner/repo/pull/1", "pr_number": 1},
+        )
+
+        notifier = AsyncMock()
+        notifier.send = AsyncMock(return_value=True)
+        store = PendingIssueStore(store_path=str(tmp_path / "pending.json"))
+        agent = DevAgent(notifier=notifier, pending_store=store)
+
+        issue_key = _make_approved_issue(store, tmp_path)
+        resp = await agent.execute_issue(issue_key)
+
+        assert resp.finish_reason == "stop"
+        assert store.get(issue_key)["status"] == STATUS_COMPLETED
+        mock_tool.execute.assert_called_once()
+        mock_create_pr.assert_called_once()
+
+    @patch("agents.dev_agent.DevAgent._get_execution_tool")
+    async def test_execute_issue_not_approved(self, mock_get_tool, tmp_path):
+        """Cannot execute an issue that is not approved."""
+        store = PendingIssueStore(store_path=str(tmp_path / "pending.json"))
+        store.add("owner/repo#99", {"status": STATUS_PENDING})
+        agent = DevAgent(pending_store=store)
+
+        resp = await agent.execute_issue("owner/repo#99")
+        assert resp.finish_reason == "error"
+        assert "not in approved state" in resp.content
+        mock_get_tool.assert_not_called()
+
+    @patch("agents.dev_agent.DevAgent._create_pr")
+    @patch("agents.dev_agent.DevAgent._get_execution_tool")
+    async def test_execute_issue_tool_failure(self, mock_get_tool, mock_create_pr, tmp_path):
+        """Tool execution failure marks issue as failed and notifies Owner."""
+        from tools.base import ToolResult
+
+        mock_tool = AsyncMock()
+        mock_tool.execute.return_value = ToolResult(
+            success=False,
+            error="CLI timed out",
+        )
+        mock_get_tool.return_value = mock_tool
+
+        notifier = AsyncMock()
+        notifier.send = AsyncMock(return_value=True)
+        store = PendingIssueStore(store_path=str(tmp_path / "pending.json"))
+        agent = DevAgent(notifier=notifier, pending_store=store)
+
+        issue_key = _make_approved_issue(store, tmp_path)
+        resp = await agent.execute_issue(issue_key)
+
+        assert resp.finish_reason == "error"
+        assert store.get(issue_key)["status"] == STATUS_FAILED
+        notifier.send.assert_called_once()  # Owner notified of failure
+        mock_create_pr.assert_not_called()
+
+    @patch("agents.dev_agent.DevAgent._create_pr")
+    @patch("agents.dev_agent.DevAgent._get_execution_tool")
+    async def test_execute_issue_complexity_max_turns(self, mock_get_tool, mock_create_pr, tmp_path):
+        """Complex issues get higher max_turns."""
+        from tools.base import ToolResult
+
+        mock_tool = AsyncMock()
+        mock_tool.execute.return_value = ToolResult(success=True, data={"result": "done"})
+        mock_get_tool.return_value = mock_tool
+
+        mock_create_pr.return_value = ToolResult(success=True, data={"pr_url": "url"})
+
+        store = PendingIssueStore(store_path=str(tmp_path / "pending.json"))
+        agent = DevAgent(pending_store=store)
+
+        issue_key = _make_approved_issue(store, tmp_path, number=77, complexity="complex")
+        await agent.execute_issue(issue_key)
+
+        call_params = mock_tool.execute.call_args.args[0]
+        assert call_params["max_turns"] == 200
+
+    @patch("agents.dev_agent.get_config")
+    async def test_get_execution_tool_subprocess(self, mock_config):
+        """Default backend returns ClaudeCodeCliTool."""
+        mock_config.return_value = {"cli": {"backend": "subprocess"}}
+        agent = DevAgent()
+        tool = agent._get_execution_tool()
+        assert tool.name == "claude_code_cli"
+
+    @patch("agents.dev_agent.get_config")
+    async def test_get_execution_tool_sdk(self, mock_config):
+        """SDK backend returns ClaudeCodeSDKTool."""
+        mock_config.return_value = {"cli": {"backend": "sdk"}}
+        agent = DevAgent()
+        tool = agent._get_execution_tool()
+        assert tool.name == "claude_code_sdk"
+
+    def test_parse_complexity(self):
+        """_parse_complexity extracts complexity from JSON."""
+        assert DevAgent._parse_complexity('{"complexity": "complex"}') == "complex"
+        assert DevAgent._parse_complexity('{"complexity": "medium"}') == "medium"
+        assert DevAgent._parse_complexity("not json") == "simple"
+        assert DevAgent._parse_complexity('{"type": "bug"}') == "simple"
+
+    async def test_execute_nonexistent_issue(self, tmp_path):
+        """Executing a non-existent issue returns error."""
+        store = PendingIssueStore(store_path=str(tmp_path / "pending.json"))
+        agent = DevAgent(pending_store=store)
+        resp = await agent.execute_issue("nonexistent#1")
+        assert resp.finish_reason == "error"
