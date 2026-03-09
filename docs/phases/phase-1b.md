@@ -194,7 +194,7 @@ uv run pytest tests/unit/test_agents/test_dev_bot.py -v -k "test_issue_execution
 
 ### Task 1B.5a: Session 轮换核心模块
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.4a
 **产出文件**: `core/session_rotation.py`, `tests/unit/test_session_rotation.py`
 

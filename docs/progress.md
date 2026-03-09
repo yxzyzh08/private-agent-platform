@@ -11,9 +11,9 @@
 | 项目 | 状态 |
 |------|------|
 | **当前 Phase** | Phase 1B: GitHub Issue 自动化 |
-| **当前任务** | Task 1B.5a: Session 轮换核心模块 |
+| **当前任务** | Task 1B.6: bug_report 事件自动创建 Issue |
 | **工作分支** | `feat/phase-1b-issue-automation` |
-| **总测试数** | 211 |
+| **总测试数** | 223 |
 | **最新 Tag** | `v0.1.0` |
 | **阻塞项** | 无 |
 
@@ -40,7 +40,7 @@
 | Phase | 目标 | 状态 | 进度 | 详细计划 |
 |-------|------|------|------|---------|
 | Phase 1A | 平台基础设施 + cui Web UI 部署 | ✅ 完成 | 28/28 | [phase-1a.md](phases/phase-1a.md) |
-| Phase 1B | 开发机器人 — GitHub Issue 自动化 | 🔵 进行中 | 7/15 | [phase-1b.md](phases/phase-1b.md) |
+| Phase 1B | 开发机器人 — GitHub Issue 自动化 | 🔵 进行中 | 8/15 | [phase-1b.md](phases/phase-1b.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |

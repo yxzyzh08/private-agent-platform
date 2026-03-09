@@ -38,6 +38,11 @@ dispatch:
 cli:
   backend: "subprocess"  # "subprocess" (claude_code_cli) or "sdk" (claude_code_sdk)
 
+session_rotation:
+  context_threshold: 0.80
+  max_rotations: 3
+  summary_max_tokens: 2000
+
 cui:
   host: "0.0.0.0"
   port: 3001
