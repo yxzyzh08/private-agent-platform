@@ -40,7 +40,7 @@ export class MCPConfigGenerator {
   /**
    * Generate MCP config with the permission server
    */
-  async generateConfig(port: number): Promise<string> {
+  async generateConfig(port: number, host?: string): Promise<string> {
     // Find MCP server relative to this module
     // In production: __dirname is /path/to/node_modules/cui-server/dist/services
     // In development: __dirname is /path/to/cui-server/src/services
@@ -88,7 +88,7 @@ export class MCPConfigGenerator {
           command: 'node',
           args: [mcpServerPath],
           env: {
-            CUI_SERVER_URL: `http://localhost:${port}`,
+            CUI_SERVER_URL: `http://${host || 'localhost'}:${port}`,
             CUI_SERVER_PORT: String(port),
             LOG_LEVEL: process.env.LOG_LEVEL || 'info'
           }

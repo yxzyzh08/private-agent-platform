@@ -188,7 +188,7 @@ export class CUIServer {
       
       // Generate MCP config before starting server
       try {
-        const mcpConfigPath = await this.mcpConfigGenerator.generateConfig(this.port);
+        const mcpConfigPath = await this.mcpConfigGenerator.generateConfig(this.port, this.host);
         this.processManager.setMCPConfigPath(mcpConfigPath);
         this.logger.debug('MCP config generated and set', { path: mcpConfigPath });
       } catch (error) {
