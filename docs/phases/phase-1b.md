@@ -143,7 +143,7 @@ uv run pytest tests/unit/test_tools/test_claude_code_sdk.py -v
 
 ### Task 1B.4b: CUI /clear 命令支持
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Phase 1A
 **产出文件**: `services/cui/` 前后端修改
 

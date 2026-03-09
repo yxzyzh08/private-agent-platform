@@ -102,6 +102,12 @@ class ApiService {
     });
   }
 
+  async clearSession(sessionId: string): Promise<{ success: boolean; message: string }> {
+    return this.apiCall(`/api/conversations/${sessionId}/clear`, {
+      method: 'POST',
+    });
+  }
+
   getStreamUrl(streamingId: string): string {
     return `/api/stream/${streamingId}`;
   }

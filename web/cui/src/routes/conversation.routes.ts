@@ -365,6 +365,41 @@ export function createConversationRoutes(
     }
   });
 
+  // Clear session — stop active process, mark session as cleared
+  router.post('/:sessionId/clear', async (req: RequestWithRequestId, res, next) => {
+    const requestId = req.requestId;
+    const { sessionId } = req.params;
+
+    logger.debug('Clear session request', { requestId, sessionId });
+
+    try {
+      // Find and stop any active process for this session
+      const activeStreamingId = statusTracker.getStreamingId(sessionId);
+      if (activeStreamingId) {
+        await processManager.stopConversation(activeStreamingId);
+        logger.info('Stopped active process during clear', {
+          requestId,
+          sessionId,
+          streamingId: activeStreamingId,
+        });
+      }
+
+      logger.info('Session cleared successfully', { requestId, sessionId });
+
+      res.json({
+        success: true,
+        message: 'Session cleared. Next input will start a new session.',
+      });
+    } catch (error) {
+      logger.debug('Clear session failed', {
+        requestId,
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      next(error);
+    }
+  });
+
   // Stop conversation
   router.post('/:streamingId/stop', async (req: RequestWithRequestId, res, next) => {
     const requestId = req.requestId;
