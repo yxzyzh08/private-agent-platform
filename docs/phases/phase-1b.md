@@ -345,12 +345,12 @@ uv run pytest tests/ -v  # 全量回归
 
 ### Task 1B.10: Post-Phase 文档同步 + Git Tag
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.9, Task 1B.9a
 
 **验收标准**:
-- [ ] 本文件所有任务标记 `[x]`
-- [ ] `docs/progress.md` Quick Status 更新
-- [ ] 测试数更新到 Test Count History
-- [ ] `git tag -a v0.2.0 -m "Phase 1B: GitHub Issue 自动化"`
-- [ ] 推送 tag 到远程
+- [x] 本文件所有任务标记 `[x]`
+- [x] `docs/progress.md` Quick Status 更新
+- [x] 测试数更新到 Test Count History
+- [x] `git tag -a v0.2.0 -m "Phase 1B: GitHub Issue 自动化"`
+- [x] 推送 tag 到远程

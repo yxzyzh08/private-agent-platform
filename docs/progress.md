@@ -10,11 +10,11 @@
 
 | 项目 | 状态 |
 |------|------|
-| **当前 Phase** | Phase 1B: GitHub Issue 自动化 |
-| **当前任务** | Task 1B.10: Post-Phase 文档同步 + Git Tag |
+| **当前 Phase** | Phase 1B: GitHub Issue 自动化 ✅ |
+| **当前任务** | — (Phase 1B 完成) |
 | **工作分支** | `feat/phase-1b-issue-automation` |
 | **总测试数** | 247 |
-| **最新 Tag** | `v0.1.0` |
+| **最新 Tag** | `v0.2.0` |
 | **阻塞项** | 无 |
 
 ### Resume Instructions
@@ -40,7 +40,7 @@
 | Phase | 目标 | 状态 | 进度 | 详细计划 |
 |-------|------|------|------|---------|
 | Phase 1A | 平台基础设施 + cui Web UI 部署 | ✅ 完成 | 28/28 | [phase-1a.md](phases/phase-1a.md) |
-| Phase 1B | 开发机器人 — GitHub Issue 自动化 | 🔵 进行中 | 14/15 | [phase-1b.md](phases/phase-1b.md) |
+| Phase 1B | 开发机器人 — GitHub Issue 自动化 | ✅ 完成 | 15/15 | [phase-1b.md](phases/phase-1b.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |
@@ -61,6 +61,7 @@
 | Session 7 确认 | 144 | 144 | Task 1.21~1.22 rate_limiter + audit 补标完成；修复 audit.py 日志规范 |
 | Session 8 完成 | 144 | 144 | Task 1.19~1.20 VPN+ntfy 部署；Task 1.25 端到端验证；修复 main.py Redis URL + 测试隔离 |
 | **Phase 1A 完成** | **144** | **144** | **Task 1.26 文档同步 + Git Tag v0.1.0** |
+| **Phase 1B 完成** | **247** | **247** | **Task 1B.10 文档同步 + Git Tag v0.2.0** |
 
 ---
 
