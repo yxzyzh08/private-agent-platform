@@ -1,11 +1,11 @@
-# Phase 1A: 平台骨架 + Web UI 开发工具
+# Phase 1A: 平台基础设施 + cui Web UI 部署
 
 **分支**: `feat/phase-1a-devbot`
 **Tag**: `v0.1.0`
-**目标**: 搭建平台核心基础设施，集成 cui Web UI 让 Owner 通过浏览器与 Claude Code 交互完成开发任务
+**目标**: 搭建平台核心基础设施（事件总线、工具注册、配置系统、日志追踪），部署 cui Web UI 让 Owner 通过浏览器直接使用 Claude Code CLI
 **预计时长**: 3 周
 
-**完成条件**: Owner 通过浏览器访问 cui Web UI，能与 Claude Code 交互（需求澄清、代码执行、结果查看）；后台任务支持关闭浏览器后继续执行；ntfy 推送任务完成通知；平台核心基础设施（事件总线、工具注册、配置系统）已就绪；Docker Compose 一键启动
+**完成条件**: 平台核心基础设施（事件总线、工具注册、配置系统、日志追踪）已就绪；Owner 通过浏览器访问 cui Web UI，能与 Claude Code 交互（需求澄清、代码执行、结果查看）；后台任务支持关闭浏览器后继续执行；ntfy 推送任务完成通知；Docker Compose 一键启动
 
 ---
 

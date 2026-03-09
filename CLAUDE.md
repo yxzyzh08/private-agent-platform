@@ -47,7 +47,7 @@ docs/phases/phase-N.md       ← Tier 3: 当前Phase详细任务（输入/输出
 
 **技术栈**：Python 3.11+、FastAPI、asyncio、LiteLLM、ChromaDB、Redis、cui (Claude Code Web UI)、Docker Compose
 
-**Phase 顺序**：开发机器人（Phase 1A: Web UI (cui) + 平台骨架 → Phase 1B: GitHub Issue 自动化）→ 知识库机器人（Phase 2）→ 客服机器人（Phase 3）→ 营销机器人（Phase 4）→ 增强功能（Phase 5）
+**Phase 顺序**：平台基础设施 + cui 部署（Phase 1A）→ 开发机器人（Phase 1B: GitHub Issue 自动化）→ 知识库机器人（Phase 2）→ 客服机器人（Phase 3）→ 营销机器人（Phase 4）→ 增强功能（Phase 5）
 
 完整需求见 `docs/requirement.md`，进度总览见 `docs/progress.md`，当前 Phase 详细任务见 `docs/phases/phase-N.md`。
 

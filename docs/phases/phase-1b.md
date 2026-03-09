@@ -1,9 +1,9 @@
-# Phase 1B: GitHub Issue 自动化
+# Phase 1B: 开发机器人 — GitHub Issue 自动化
 
 **分支**: `feat/phase-1b-issue-automation`
 **Tag**: `v0.2.0`
 **前置**: Phase 1A 完成
-**目标**: GitHub 创建 Issue 后，机器人自动分析 → ntfy 通知 Owner → Owner 通过 Web UI 确认 → 执行修复并提 PR（半自动模式）
+**目标**: 平台首个真正的智能体（DevAgent）上线 — GitHub 创建 Issue 后，开发机器人通过 AgentRuntime 编排：自动分析 → ntfy 通知 Owner → Owner 通过 Web UI 确认 → 执行修复并提 PR（半自动模式）
 **预计时长**: 2 周
 
 **完成条件**: GitHub 创建 Issue 后，开发机器人自动分析 Issue 类型 → ntfy 通知 Owner → Owner 通过 cui Web UI 确认 → Claude Code 执行修复 → Issue 下自动评论进度 → 自动创建 PR 并关联 Issue
