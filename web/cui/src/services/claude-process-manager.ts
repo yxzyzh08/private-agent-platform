@@ -58,34 +58,12 @@ export class ClaudeProcessManager extends EventEmitter {
   }
 
   /**
-   * Find the Claude executable from node_modules
-   * Since @anthropic-ai/claude-code is a dependency, claude should be in node_modules/.bin
+   * Find the Claude executable, preferring the system-installed version
+   * so that host upgrades are automatically picked up by cui.
+   * Falls back to the bundled node_modules copy if no system install exists.
    */
   private findClaudeExecutable(): string {
-    // When running as an npm package, find claude relative to this module
-    // __dirname will be something like /path/to/node_modules/cui-server/dist/services
-    const packageRoot = path.resolve(__dirname, '..', '..');
-    const claudePath = path.join(packageRoot, 'node_modules', '.bin', 'claude');
-    
-    if (existsSync(claudePath)) {
-      return claudePath;
-    }
-    
-    // Try from the parent node_modules (when cui-server is installed as a dependency)
-    // packageRoot -> /node_modules/cui-server
-    // parent -> /node_modules, so /node_modules/.bin/claude
-    const parentModulesPath = path.resolve(packageRoot, '..', '.bin', 'claude');
-    if (existsSync(parentModulesPath)) {
-      return parentModulesPath;
-    }
-    
-    // Fallback: try from current working directory (for local development)
-    const cwdPath = path.join(process.cwd(), 'node_modules', '.bin', 'claude');
-    if (existsSync(cwdPath)) {
-      return cwdPath;
-    }
-    
-    // Final fallback: try to locate on PATH
+    // 1. Prefer system PATH — keeps cui in sync with host claude version
     const pathEnv = process.env.PATH || '';
     const pathDirs = pathEnv.split(path.delimiter);
     for (const dir of pathDirs) {
@@ -94,8 +72,27 @@ export class ClaudeProcessManager extends EventEmitter {
         return candidate;
       }
     }
-    
-    throw new Error('Claude executable not found in node_modules. Ensure @anthropic-ai/claude-code is installed.');
+
+    // 2. Fallback: node_modules relative to this module
+    const packageRoot = path.resolve(__dirname, '..', '..');
+    const claudePath = path.join(packageRoot, 'node_modules', '.bin', 'claude');
+    if (existsSync(claudePath)) {
+      return claudePath;
+    }
+
+    // 3. Fallback: parent node_modules (when cui-server is installed as a dependency)
+    const parentModulesPath = path.resolve(packageRoot, '..', '.bin', 'claude');
+    if (existsSync(parentModulesPath)) {
+      return parentModulesPath;
+    }
+
+    // 4. Fallback: current working directory node_modules
+    const cwdPath = path.join(process.cwd(), 'node_modules', '.bin', 'claude');
+    if (existsSync(cwdPath)) {
+      return cwdPath;
+    }
+
+    throw new Error('Claude executable not found. Ensure Claude CLI is installed on the system or @anthropic-ai/claude-code is in node_modules.');
   }
 
   /**
