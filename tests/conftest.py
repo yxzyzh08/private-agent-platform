@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
@@ -77,3 +78,60 @@ def tmp_data_dir(tmp_path):
     yield data_dir
 
     # Cleanup is handled by tmp_path fixture automatically
+
+
+@pytest.fixture
+def mock_github_webhook():
+    """Mock GitHubWebhookChannel for tests that need a webhook channel."""
+    from channels.github_webhook.channel import GitHubWebhookChannel
+
+    channel = GitHubWebhookChannel(webhook_secret="test-secret")
+    channel.on_message = AsyncMock()
+    return channel
+
+
+@pytest.fixture
+def mock_claude_cli():
+    """Mock ClaudeCodeCliTool for tests that need CLI execution."""
+    from tools.base import ToolResult
+
+    tool = AsyncMock()
+    tool.name = "claude_code_cli"
+    tool.execute = AsyncMock(
+        return_value=ToolResult(success=True, data={"result": "done", "needs_rotation": False})
+    )
+    return tool
+
+
+@pytest.fixture
+def mock_claude_sdk():
+    """Mock ClaudeCodeSDKTool for tests that need SDK execution."""
+    from tools.base import ToolResult
+
+    tool = AsyncMock()
+    tool.name = "claude_code_sdk"
+    tool.execute = AsyncMock(
+        return_value=ToolResult(
+            success=True,
+            data={
+                "session_id": "test-session",
+                "result": "done",
+                "stop_reason": "end_turn",
+                "needs_rotation": False,
+                "compact_count": 0,
+            },
+        )
+    )
+    return tool
+
+
+@pytest.fixture
+def mock_session_rotator():
+    """Mock SessionRotator for tests that need rotation logic."""
+    from core.session_rotation import RotationResult
+
+    rotator = AsyncMock()
+    rotator.execute_with_rotation = AsyncMock(
+        return_value=RotationResult(success=True, result="done", total_rotations=0)
+    )
+    return rotator

@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 
+from core.audit import log_tool_call
 from tools.base import BaseTool, ToolResult
 
 _VALID_OPERATIONS = ("clone", "checkout", "commit", "push", "create_pr", "create_issue")
@@ -44,6 +46,7 @@ class GitTool(BaseTool):
 
     async def execute(self, params: dict) -> ToolResult:
         await self.validate_input(params)
+        start_time = time.monotonic()
 
         operation = params["operation"]
         handlers = {
@@ -59,7 +62,16 @@ class GitTool(BaseTool):
         if not handler:
             return ToolResult(success=False, error=f"Unknown operation: {operation}")
 
-        return await handler(params)
+        result = await handler(params)
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        log_tool_call(
+            agent_id="unknown",
+            tool_name=self.name,
+            params=params,
+            result_status="success" if result.success else "error",
+            duration_ms=duration_ms,
+        )
+        return result
 
     async def _run_git(self, args: list[str], cwd: str = ".") -> tuple[int, str, str]:
         """Run a git command as async subprocess."""

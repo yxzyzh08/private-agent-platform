@@ -15,7 +15,7 @@ class TestCreateApp:
         app = create_app()
         assert app is not None
         assert app.title == "Test Platform"
-        assert app.version == "0.1.0"
+        assert app.version == "0.2.0"
 
     def test_create_app_registers_tools(self, mock_config):
         """create_app() should register all built-in tools."""
@@ -43,7 +43,7 @@ class TestHealthEndpoint:
         data = response.json()
         assert data["status"] == "healthy"
         assert data["platform"] == "Test Platform"
-        assert data["version"] == "0.1.0"
+        assert data["version"] == "0.2.0"
 
     def test_health_includes_services(self, mock_config):
         """Health endpoint should report service statuses."""

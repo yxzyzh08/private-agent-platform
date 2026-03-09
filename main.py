@@ -19,6 +19,7 @@ from core.config import get_config
 from core.event_bus import EventBus
 from core.logging import get_logger, setup_logging
 from core.tool_registry import ToolRegistry
+from channels.github_webhook.channel import GitHubWebhookChannel
 from tools.claude_code_cli import ClaudeCodeCliTool
 from tools.event_bus_tool import EventBusTool
 from tools.git_tool import GitTool
@@ -68,6 +69,10 @@ def create_app() -> FastAPI:
 
     _register_tools(tool_registry, event_bus)
 
+    # Register GitHub Webhook channel
+    github_channel = GitHubWebhookChannel()
+    channel_manager.register(github_channel)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Manage startup and shutdown of platform services."""
@@ -93,7 +98,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=config.get("platform", {}).get("name", "Agent Platform"),
-        version="0.1.0",
+        version="0.2.0",
         lifespan=lifespan,
     )
 
@@ -102,6 +107,9 @@ def create_app() -> FastAPI:
     app.state.tool_registry = tool_registry
     app.state.channel_manager = channel_manager
     app.state.config = config
+
+    # Register channel routes on the app
+    github_channel.register_routes(app)
 
     @app.get("/health")
     async def health_check():
@@ -124,16 +132,23 @@ def create_app() -> FastAPI:
         cui_cfg = config.get("cui", {})
         cui_status = "configured" if cui_cfg.get("port") else "not_configured"
 
+        # GitHub Webhook config status
+        github_webhook_configured = bool(os.environ.get("GITHUB_WEBHOOK_SECRET"))
+
         return JSONResponse({
             "status": "healthy",
             "platform": config.get("platform", {}).get("name", "Unknown"),
-            "version": "0.1.0",
+            "version": "0.2.0",
             "services": {
                 "redis": redis_status,
                 "cui": {
                     "status": cui_status,
                     "host": cui_cfg.get("host", "localhost"),
                     "port": cui_cfg.get("port", 3001),
+                },
+                "github_webhook": {
+                    "status": "configured" if github_webhook_configured else "not_configured",
+                    "route": "POST /webhooks/github",
                 },
             },
             "tools": len(tool_registry.list_all_tools()),

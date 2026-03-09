@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 
+from core.audit import log_tool_call
 from tools.base import BaseTool, ToolResult
 
 _DEFAULT_MAX_TURNS = 100
@@ -72,6 +73,7 @@ class ClaudeCodeSDKTool(BaseTool):
         allowed_tools = params.get("allowed_tools", ["Read", "Edit", "Write", "Bash", "Glob", "Grep"])
 
         self._hook_events = []
+        start_time = time.monotonic()
 
         try:
             from claude_agent_sdk import (
@@ -114,7 +116,7 @@ class ClaudeCodeSDKTool(BaseTool):
             compact_count = sum(1 for e in self._hook_events if e.get("type") == "PreCompact")
             needs_rotation = stop_reason == "max_turns"
 
-            return ToolResult(
+            result = ToolResult(
                 success=True,
                 data={
                     "session_id": session_id,
@@ -127,13 +129,19 @@ class ClaudeCodeSDKTool(BaseTool):
                     "hook_events": len(self._hook_events),
                 },
             )
+            log_tool_call("unknown", self.name, params, "success", duration_ms)
+            return result
 
         except ImportError:
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            log_tool_call("unknown", self.name, params, "error", duration_ms)
             return ToolResult(
                 success=False,
                 error="claude-agent-sdk not installed. Run: pip install claude-agent-sdk",
             )
         except Exception as e:
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            log_tool_call("unknown", self.name, params, "error", duration_ms)
             return ToolResult(
                 success=False,
                 error=f"SDK execution failed: {type(e).__name__}: {e}",

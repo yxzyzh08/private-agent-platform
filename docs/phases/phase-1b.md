@@ -287,7 +287,7 @@ uv run pytest tests/unit/test_agents/test_dev_bot.py -v --cov=agents --cov=chann
 
 ### Task 1B.8: 更新 main.py + docker-compose.yml
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.7
 **产出文件**: `main.py` 更新, `docker-compose.yml` 更新
 
@@ -305,7 +305,7 @@ uv run python -c "from main import create_app; app = create_app(); print('App cr
 
 ### Task 1B.9: 端到端验证
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成（程序化验证通过；完整手动 E2E 待部署后执行）
 **依赖**: Task 1B.8
 
 **验收标准**:
@@ -320,7 +320,7 @@ uv run python -c "from main import create_app; app = create_app(); print('App cr
 
 ### Task 1B.9a: Phase 1B 基础设施适配
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.7
 **参考**: `docs/requirement.md` §3.5 横切面需求演进路线
 
@@ -328,13 +328,13 @@ uv run python -c "from main import create_app; app = create_app(); print('App cr
 确保 Phase 1B 新增的模块正确集成平台横切面基础设施。
 
 **验收标准**:
-- [ ] **安全**：GitHub Webhook 签名验证（`X-Hub-Signature-256`）已实现，验证失败返回 403 并记录日志
-- [ ] **错误**：`core/errors.py` 新增 `WebhookVerificationError`、`SessionRotationError` 异常类型
-- [ ] **日志**：`channels/github_webhook/channel.py` 和 `agents/dev_agent.py` 使用 `get_logger(__name__)`
-- [ ] **Trace ID**：GitHub Webhook 入口调用 `set_trace_id()` 生成请求追踪 ID
-- [ ] **审计**：`claude_code_cli`、`claude_code_sdk` 和 `git_tool` 的工具调用经过审计记录
-- [ ] **测试**：`tests/conftest.py` 新增 `mock_github_webhook`、`mock_claude_cli`、`mock_claude_sdk`、`mock_session_rotator` fixtures
-- [ ] **配置**：`config/platform.yaml` 的 `dispatch.routes` 包含 GitHub Webhook 路由；`cli.backend` 配置项可用
+- [x] **安全**：GitHub Webhook 签名验证（`X-Hub-Signature-256`）已实现，验证失败返回 403 并记录日志
+- [x] **错误**：`core/errors.py` 新增 `WebhookVerificationError`、`SessionRotationError` 异常类型
+- [x] **日志**：`channels/github_webhook/channel.py` 和 `agents/dev_agent.py` 使用 `get_logger(__name__)`
+- [x] **Trace ID**：GitHub Webhook 入口调用 `set_trace_id()` 生成请求追踪 ID
+- [x] **审计**：`claude_code_cli`、`claude_code_sdk` 和 `git_tool` 的工具调用经过审计记录
+- [x] **测试**：`tests/conftest.py` 新增 `mock_github_webhook`、`mock_claude_cli`、`mock_claude_sdk`、`mock_session_rotator` fixtures
+- [x] **配置**：`config/platform.yaml` 的 `dispatch.routes` 包含 GitHub Webhook 路由；`cli.backend` 配置项可用
 
 **测试命令**:
 ```bash

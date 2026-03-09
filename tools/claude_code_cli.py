@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 
+from core.audit import log_tool_call
 from tools.base import BaseTool, ToolResult
 
 _DEFAULT_TIMEOUT = 600  # 10 minutes
@@ -50,7 +52,20 @@ class ClaudeCodeCliTool(BaseTool):
             ToolResult with CLI output or error details.
         """
         await self.validate_input(params)
+        start_time = time.monotonic()
+        result = await self._execute_cli(params)
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        log_tool_call(
+            agent_id="unknown",
+            tool_name=self.name,
+            params=params,
+            result_status="success" if result.success else "error",
+            duration_ms=duration_ms,
+        )
+        return result
 
+    async def _execute_cli(self, params: dict) -> ToolResult:
+        """Internal CLI execution logic."""
         prompt = params["prompt"]
         cwd = params.get("working_directory", ".")
         timeout = params.get("timeout", _DEFAULT_TIMEOUT)
