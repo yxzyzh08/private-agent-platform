@@ -26,3 +26,11 @@ class RateLimitError(PlatformError):
 
 class ValidationError(PlatformError):
     """Raised when input validation fails (e.g., JSON Schema)."""
+
+
+class WebhookVerificationError(ChannelError):
+    """Raised when webhook signature verification fails."""
+
+
+class SessionRotationError(PlatformError):
+    """Raised when session rotation encounters an unrecoverable error."""

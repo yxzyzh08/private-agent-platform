@@ -14,7 +14,7 @@
 
 ### Task 1B.1: 实现 channels/github_webhook/channel.py
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Phase 1A（channels/base.py 已存在）
 **产出文件**: `channels/github_webhook/channel.py`
 
@@ -44,7 +44,7 @@ uv run pytest tests/unit/test_channels.py -v -k "test_github_webhook"
 
 ### Task 1B.2: 更新 dispatch.py 路由规则
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.1
 **产出文件**: `core/dispatch.py` 更新, `config/platform.yaml` 更新
 
@@ -66,7 +66,7 @@ uv run pytest tests/unit/test_channels.py -v -k "test_dispatch_github"
 
 ### Task 1B.3: 创建 agents/dev_agent.py + config/agents/dev.yaml
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1B.2, Phase 1A（agent_runtime 已存在）
 **产出文件**: `agents/dev_agent.py`, `config/agents/dev.yaml`
 
