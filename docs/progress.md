@@ -10,11 +10,11 @@
 
 | 项目 | 状态 |
 |------|------|
-| **当前 Phase** | Phase 1C: 需求驱动开发工作流 ✅ |
+| **当前 Phase** | Phase 1D: cui 全流程集成 ✅ |
 | **当前任务** | 全部完成 |
-| **工作分支** | `feat/phase-1c-requirement-workflow` |
-| **总测试数** | 346 |
-| **最新 Tag** | `v0.3.0` |
+| **工作分支** | `feat/phase-1d-cui-integration` |
+| **总测试数** | 421 (Python) + 294 (TypeScript) |
+| **最新 Tag** | `v0.4.0` |
 | **阻塞项** | 无 |
 
 ### Resume Instructions
@@ -42,6 +42,7 @@
 | Phase 1A | 平台基础设施 + cui Web UI 部署 | ✅ 完成 | 28/28 | [phase-1a.md](phases/phase-1a.md) |
 | Phase 1B | 开发机器人 — GitHub Issue 自动化 | ✅ 完成 | 15/15 | [phase-1b.md](phases/phase-1b.md) |
 | Phase 1C | 开发机器人 — 需求驱动开发工作流 | ✅ 完成 | 14/14 | [phase-1c.md](phases/phase-1c.md) |
+| Phase 1D | 开发机器人 — cui 全流程集成 | ✅ 完成 | 13/13 | [phase-1d.md](phases/phase-1d.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |
@@ -64,6 +65,7 @@
 | **Phase 1A 完成** | **144** | **144** | **Task 1.26 文档同步 + Git Tag v0.1.0** |
 | **Phase 1B 完成** | **247** | **247** | **Task 1B.10 文档同步 + Git Tag v0.2.0** |
 | **Phase 1C 完成** | **346** | **346** | **Task 1C.14 文档同步 + Git Tag v0.3.0** |
+| **Phase 1D 完成** | **421+294** | **421+294** | **Task 1D.13 文档同步 + Git Tag v0.4.0 (Python 421 + TypeScript 294)** |
 
 ---
 

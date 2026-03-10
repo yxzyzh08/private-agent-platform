@@ -1,7 +1,7 @@
 # 个人多智能体平台 — 需求文档
 
-**版本**: v0.9
-**日期**: 2026-03-09
+**版本**: v0.10
+**日期**: 2026-03-10
 **状态**: 已确认，开发中
 
 ---
@@ -207,6 +207,7 @@ class ToolCall:
 | 1A | 速率限制、审计日志、日志脱敏、工具 Schema 校验 | `core/rate_limiter.py`, `core/audit.py` |
 | 1B | GitHub Webhook 签名验证 | `channels/github_webhook/channel.py` |
 | 1C | 敏感文件变更检测与自动回滚、子任务 prompt 安全指令注入 | `core/task_executor.py` |
+| 1D | 项目初始化 API 路径校验（allowlist 正则 + base_path 白名单，防穿越） | `routes/projects.py` |
 | 2 | 知识库文件路径沙箱（防止越权读取） | `tools/file_tool.py` |
 | 3 | 用户配对码验证、Prompt Injection 防护、输入净化 | `core/security.py`, `core/agent_runtime.py` |
 | 4 | Cookie 安全管理（chmod 600）、账号隔离 | `tools/browser.py` |
@@ -217,6 +218,7 @@ class ToolCall:
 |-------|------------|---------|
 | 1A | Redis（事件总线）、会话 JSONL 基础设施 | `core/event_bus.py`, `core/memory.py` |
 | 1C | TaskPlan JSON 文件持久化 | `data/agents/dev_bot/workspace/task_plans/` |
+| 1D | 无新增存储需求（项目创建在 Owner 指定路径） | — |
 | 2 | ChromaDB 向量库初始化 + 文档写入 | `tools/knowledge_base.py` |
 | 3 | 客服会话持久化（多客户隔离） | `data/agents/cs_bot/sessions/` |
 | 4 | 文章发布记录 + Cookie 存储 | `data/agents/marketing_bot/workspace/` |
@@ -228,6 +230,7 @@ class ToolCall:
 | 1A | `platform.yaml` 基础结构 | `config/platform.yaml` |
 | 1B | `dispatch.routes` 新增 GitHub Webhook 路由、`dev.yaml`、`session_rotation` 配置 | `config/` |
 | 1C | `task_planning` 配置节（超时、子任务数上限、敏感文件模式） | `config/platform.yaml` |
+| 1D | `project_initialization` 配置节（allowed_base_paths、git_user）、`sse.heartbeat_interval_seconds` | `config/platform.yaml` |
 | 2 | `knowledge_base.yaml`、知识库 sources 配置 | `config/agents/` |
 | 3 | `customer_service.yaml`、Telegram 渠道配置 | `config/agents/` |
 | 4 | `marketing.yaml`、调度 cron 配置 | `config/agents/` |
@@ -239,6 +242,7 @@ class ToolCall:
 | 1A | `mock_config`, `tmp_data_dir`, `event_loop` | `tests/conftest.py` |
 | 1B | `mock_github_webhook`, `mock_claude_cli`, `mock_claude_sdk`, `mock_session_rotator` | `tests/conftest.py` |
 | 1C | `mock_task_planner`, `mock_task_executor`, `sample_task_plan`, `sample_subtasks` | `tests/conftest.py` |
+| 1D | `mock_project_init`, `mock_sse_client`, `mock_plan_event_broker`, `sample_sse_events` | `tests/conftest.py` |
 | 2 | `mock_chromadb`, `mock_git_repo` | `tests/conftest.py` |
 | 3 | `mock_telegram`, `mock_knowledge_base` | `tests/conftest.py` |
 | 4 | `mock_playwright`, `mock_scheduler` | `tests/conftest.py` |
@@ -250,6 +254,7 @@ class ToolCall:
 | 1A | `PlatformError`, `ToolError`, `ChannelError`, `PermissionDeniedError`, `RateLimitError`, `ValidationError` | `core/errors.py` |
 | 1B | `WebhookVerificationError`, `SessionRotationError` | `core/errors.py` |
 | 1C | `TaskPlanError`, `TaskExecutionError`, `SubtaskTimeoutError`, `DirtyGitStateError`, `SensitiveFileError`, `CyclicDependencyError` | `core/errors.py` |
+| 1D | `ProjectInitError`（项目创建失败）、`SSEConnectionError`（SSE 连接异常） | `core/errors.py` |
 | 2 | `KnowledgeBaseError`（索引失败、查询超时） | `core/errors.py` |
 | 3 | `EscalationError`（升级通知失败）、`SessionError` | `core/errors.py` |
 | 4 | `BrowserError`（页面加载失败）、`CookieExpiredError` | `core/errors.py` |
@@ -412,6 +417,17 @@ platforms:
 | DV-28 | 连续失败保护：连续 2 个子任务失败自动终止计划 | P1 |
 | DV-29 | 需求开发 REST API：`POST /api/requirements/from-phase` 为核心端点，另含 abort/retry/skip 控制端点 | P0 |
 | DV-30 | Phase 文件模板：提供 phase-template.md + CLAUDE.md 扩展模板，支持新项目初始化 | P1 |
+
+**cui 全流程集成（Phase 1D — 从对话到自动执行，零命令行体验）**:
+
+> **Mode D 是 Mode C 的 UI 升级**。Owner 在 cui 浏览器中与 Claude Code 对话即可完成全流程：需求澄清 → 任务分解 → 一键提交执行 → 实时进度查看 → 干预控制。Claude Code 通过 MCP Tool 自动调用平台 API，前端 SSE 订阅实时展示执行进度。
+
+| # | 功能 | 优先级 |
+|---|------|--------|
+| DV-31 | 项目初始化 API：平台 API 自动创建 git 仓库 + phase 骨架，支持 Owner 从零创建新项目 | P1 |
+| DV-32 | MCP Tool Bridge：Platform MCP Server 暴露 5 个工具（init_project、submit_phase、get_plan_status、control_task、abort_plan），Claude Code 原生理解并自主调用 | P0 |
+| DV-33 | SSE 实时进度推送：进程内 PlanEventBroker fan-out + FastAPI SSE 端点，支持多客户端订阅 | P0 |
+| DV-34 | RequirementPanel：cui 侧边栏实时展示执行进度（进度条 + 任务卡片 + 操作按钮），MCP Tool 返回 plan_id 自动触发 | P0 |
 
 **工具权限**（Phase 1B 自动化流程使用）:
 - ✅ `claude_code_cli` — 核心执行引擎（子进程调用）
@@ -1022,6 +1038,40 @@ private-agent-platform/
 
 ---
 
+### Phase 1C — 需求驱动开发工作流
+
+**前置条件**：Phase 1B 完成
+
+**目标**: Owner 提供 phase-N.md 需求文件 → 平台自动解析为子任务 → 逐个独立执行 → 回写进度 → 失败可重试/跳过/终止
+
+| # | 验收用例 | 预期结果 |
+|---|---------|---------|
+| AC-1C.1 | Phase 文件解析 | PhaseFileParser 正确解析 phase-N.md 为 TaskPlan JSON |
+| AC-1C.2 | 多任务串行执行 | TaskExecutor 按序执行子任务，每个子任务独立 CLI 上下文 |
+| AC-1C.3 | 进度回写 | 子任务完成后 phase-N.md 中 `[ ]` → `[x]` |
+| AC-1C.4 | 失败处理 | 子任务失败自动暂停，支持 retry/skip/abort |
+| AC-1C.5 | 敏感文件保护 | 修改 .env 等文件时自动回滚 + 通知 |
+| AC-1C.6 | 连续失败保护 | 连续 2 个子任务失败自动终止计划 |
+| AC-1C.7 | REST API | `POST /api/requirements/from-phase` 及控制端点正常工作 |
+
+---
+
+### Phase 1D — cui 全流程集成
+
+**前置条件**：Phase 1C 完成
+
+**目标**: Owner 在 cui 浏览器中对话即可完成全流程：新项目创建 → 需求澄清 → 一键提交执行 → 实时进度查看 → 干预控制
+
+| # | 验收用例 | 预期结果 |
+|---|---------|---------|
+| AC-1D.1 | 项目初始化 API | `POST /api/projects/init` 创建 git 仓库 + phase 骨架 + 初始 commit |
+| AC-1D.2 | MCP Tool Bridge | Claude Code 通过 MCP 工具自动调用平台 API（init_project、submit_phase 等） |
+| AC-1D.3 | SSE 实时推送 | PlanEventBroker fan-out + SSE 端点，多客户端订阅实时事件 |
+| AC-1D.4 | RequirementPanel | cui 侧边栏实时展示进度（进度条 + 任务卡片 + 操作按钮） |
+| AC-1D.5 | 全流程 E2E | 从项目创建到任务执行到进度展示的完整链路验证 |
+
+---
+
 ### Phase 2 — 知识库机器人
 
 **前置条件**：Phase 1 完成
@@ -1139,4 +1189,4 @@ async def test_claude_api_real():
 ---
 
 
-*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-09（v0.9 新增 DV-14~DV-17 SDK 双轨执行/Session 轮换/CUI /clear 支持；AC-1B.6~AC-1B.9 验收用例；claude_code_sdk 工具）*
+*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-10（v0.10 新增 DV-31~DV-34 Phase 1D cui 全流程集成功能点；§3.5 横切面表新增 Phase 1D 条目；§12 新增 Phase 1C/1D 验收用例）*

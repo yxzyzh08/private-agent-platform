@@ -673,7 +673,7 @@ uv run pytest tests/ -v  # 全量回归
 
 ### Task 1D.12: L3 端到端验收
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.9, Task 1D.11
 **产出文件**: `tests/e2e/test_e2e_cui_workflow.py`
 
@@ -724,7 +724,7 @@ uv run python tests/e2e/test_e2e_cui_workflow.py
 
 ### Task 1D.13: Post-Phase 文档同步 + Git Tag
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.12
 
 **验收标准**:
