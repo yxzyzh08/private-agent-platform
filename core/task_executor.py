@@ -25,6 +25,7 @@ from core.task_planner import SubTask, TaskPlan, TaskPlanStore, topological_sort
 
 if TYPE_CHECKING:
     from core.notifier import Notifier
+    from core.plan_event_broker import PlanEventBroker
     from core.tool_registry import ToolRegistry
 
 logger = get_logger(__name__)
@@ -51,11 +52,13 @@ class TaskExecutor:
         notifier: Notifier,
         config: dict,
         store: TaskPlanStore | None = None,
+        event_broker: PlanEventBroker | None = None,
     ) -> None:
         self._registry = tool_registry
         self._notifier = notifier
         self._config = config
         self._store = store or TaskPlanStore()
+        self._event_broker = event_broker
         self._stop_requested = False
         self._consecutive_failures = 0
         self._current_process: asyncio.subprocess.Process | None = None
@@ -63,6 +66,18 @@ class TaskExecutor:
     def request_stop(self) -> None:
         """Request graceful stop of the current execution."""
         self._stop_requested = True
+
+    async def _emit(self, plan_id: str, event_type: str, data: dict) -> None:
+        """Publish event to PlanEventBroker. Failure-isolated — never breaks execution."""
+        if self._event_broker is None:
+            return
+        try:
+            event = {"event": event_type, "plan_id": plan_id, **data}
+            await self._event_broker.publish(plan_id, event)
+        except Exception:
+            logger.warning(
+                "Failed to emit event %s for plan %s", event_type, plan_id, exc_info=True
+            )
 
     async def retry_subtask(self, plan: TaskPlan, task_id: str) -> TaskPlan:
         """Retry a failed subtask by resetting to pending and re-executing."""
@@ -163,6 +178,12 @@ class TaskExecutor:
         """
         failure_limit = self._config.get("consecutive_failure_limit", 2)
 
+        # Event: plan_started
+        await self._emit(plan.plan_id, "plan_started", {
+            "total_tasks": plan.total_count,
+            "timestamp": time.time(),
+        })
+
         # Sort tasks by dependencies
         sorted_tasks = topological_sort(plan.tasks)
 
@@ -171,6 +192,12 @@ class TaskExecutor:
                 plan.transition_to("paused")
                 self._store.save(plan)
                 await self._notify("Plan paused by owner request", title="Plan Paused")
+                # Event: plan_stopped
+                await self._emit(plan.plan_id, "plan_stopped", {
+                    "completed_tasks": plan.completed_count,
+                    "reason": "owner_requested",
+                    "timestamp": time.time(),
+                })
                 break
 
             if task.status in ("completed", "skipped"):
@@ -179,12 +206,34 @@ class TaskExecutor:
             task.transition_to("in_progress")
             self._store.save(plan)
 
+            # Event: task_started
+            await self._emit(plan.plan_id, "task_started", {
+                "task_id": task.task_id,
+                "title": task.title,
+                "timestamp": time.time(),
+            })
+
             try:
                 await self.execute_subtask(task, plan)
                 self._consecutive_failures = 0
+                # Event: task_completed
+                await self._emit(plan.plan_id, "task_completed", {
+                    "task_id": task.task_id,
+                    "duration_ms": task.duration_ms,
+                    "summary": task.result_summary[:200] if task.result_summary else "",
+                    "timestamp": time.time(),
+                })
             except (TaskExecutionError, SubtaskTimeoutError) as e:
                 self._consecutive_failures += 1
                 logger.error("Subtask %s failed: %s", task.task_id, e)
+
+                # Event: task_failed
+                await self._emit(plan.plan_id, "task_failed", {
+                    "task_id": task.task_id,
+                    "error": str(e),
+                    "attempt": task.attempt_count,
+                    "timestamp": time.time(),
+                })
 
                 if self._consecutive_failures >= failure_limit:
                     plan.transition_to("failed")
@@ -195,6 +244,12 @@ class TaskExecutor:
                         title="Plan Failed",
                         priority="high",
                     )
+                    # Event: plan_failed
+                    await self._emit(plan.plan_id, "plan_failed", {
+                        "failed_task": task.task_id,
+                        "consecutive_failures": self._consecutive_failures,
+                        "timestamp": time.time(),
+                    })
                     return plan
 
                 plan.transition_to("paused")
@@ -215,6 +270,14 @@ class TaskExecutor:
                 title="Plan Completed",
                 tags=["white_check_mark"],
             )
+            # Event: plan_completed
+            total_duration = sum(t.duration_ms for t in plan.tasks)
+            await self._emit(plan.plan_id, "plan_completed", {
+                "total_tasks": plan.total_count,
+                "completed": plan.completed_count,
+                "total_duration_ms": total_duration,
+                "timestamp": time.time(),
+            })
 
         return plan
 

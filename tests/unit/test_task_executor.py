@@ -580,3 +580,133 @@ class TestFindTask:
         plan = _make_plan(tmp_path)
         with pytest.raises(TaskExecutionError, match="not found"):
             executor._find_task(plan, "T.99")
+
+
+# --- Phase 1D: Event Broker Integration ---
+
+
+class TestEventBrokerIntegration:
+    """Test that TaskExecutor emits events through PlanEventBroker."""
+
+    def _make_executor_with_broker(self, deps, broker=None):
+        if broker is None:
+            broker = AsyncMock()
+            broker.publish = AsyncMock()
+        return TaskExecutor(
+            tool_registry=deps["registry"],
+            notifier=deps["notifier"],
+            config=deps["config"],
+            store=deps["store"],
+            event_broker=broker,
+        ), broker
+
+    @pytest.mark.asyncio
+    async def test_event_broker_optional(self, tmp_path, executor_deps):
+        """event_broker=None should not break anything."""
+        executor = _make_executor(executor_deps)
+        assert executor._event_broker is None
+        # _emit should be a no-op
+        await executor._emit("plan-1", "test", {"data": "x"})
+
+    @pytest.mark.asyncio
+    async def test_emit_publishes_event(self, tmp_path, executor_deps):
+        """_emit should call broker.publish with correct structure."""
+        executor, broker = self._make_executor_with_broker(executor_deps)
+        await executor._emit("plan-1", "task_started", {"task_id": "T.1"})
+        broker.publish.assert_called_once()
+        args = broker.publish.call_args
+        assert args[0][0] == "plan-1"
+        event = args[0][1]
+        assert event["event"] == "task_started"
+        assert event["plan_id"] == "plan-1"
+        assert event["task_id"] == "T.1"
+
+    @pytest.mark.asyncio
+    async def test_emit_failure_isolated(self, tmp_path, executor_deps):
+        """_emit failure should not raise, just log warning."""
+        broker = AsyncMock()
+        broker.publish = AsyncMock(side_effect=RuntimeError("broker down"))
+        executor, _ = self._make_executor_with_broker(executor_deps, broker)
+        # Should not raise
+        await executor._emit("plan-1", "test_event", {})
+
+    @pytest.mark.asyncio
+    async def test_plan_started_event(self, tmp_path, executor_deps):
+        """execute_plan should emit plan_started event."""
+        executor, broker = self._make_executor_with_broker(executor_deps)
+        plan = _make_plan(tmp_path, tasks=[
+            SubTask(task_id="T.1", title="Test", description="Test task"),
+        ])
+
+        with patch("core.task_executor._run_git", new_callable=AsyncMock) as mock_git:
+            mock_git.return_value = (0, "")
+            await executor.execute_plan(plan)
+
+        # Check plan_started was emitted
+        events = [call[0][1]["event"] for call in broker.publish.call_args_list]
+        assert "plan_started" in events
+
+    @pytest.mark.asyncio
+    async def test_task_completed_event(self, tmp_path, executor_deps):
+        """execute_plan should emit task_completed for successful tasks."""
+        executor, broker = self._make_executor_with_broker(executor_deps)
+        plan = _make_plan(tmp_path, tasks=[
+            SubTask(task_id="T.1", title="Test", description="Test task"),
+        ])
+
+        with patch("core.task_executor._run_git", new_callable=AsyncMock) as mock_git:
+            mock_git.return_value = (0, "")
+            await executor.execute_plan(plan)
+
+        events = [call[0][1]["event"] for call in broker.publish.call_args_list]
+        assert "task_started" in events
+        assert "task_completed" in events
+
+    @pytest.mark.asyncio
+    async def test_plan_completed_event(self, tmp_path, executor_deps):
+        """execute_plan should emit plan_completed when all tasks done."""
+        executor, broker = self._make_executor_with_broker(executor_deps)
+        plan = _make_plan(tmp_path, tasks=[
+            SubTask(task_id="T.1", title="Test", description="Test task"),
+        ])
+
+        with patch("core.task_executor._run_git", new_callable=AsyncMock) as mock_git:
+            mock_git.return_value = (0, "")
+            await executor.execute_plan(plan)
+
+        events = [call[0][1]["event"] for call in broker.publish.call_args_list]
+        assert "plan_completed" in events
+
+    @pytest.mark.asyncio
+    async def test_task_failed_event(self, tmp_path, executor_deps):
+        """task failure should emit task_failed event."""
+        executor_deps["cli_tool"].execute = AsyncMock(
+            return_value=ToolResult(success=False, data=None, error="CLI error")
+        )
+        executor, broker = self._make_executor_with_broker(executor_deps)
+        plan = _make_plan(tmp_path, tasks=[
+            SubTask(task_id="T.1", title="Test", description="Test task"),
+        ])
+
+        with patch("core.task_executor._run_git", new_callable=AsyncMock) as mock_git:
+            mock_git.return_value = (0, "abc123")
+            await executor.execute_plan(plan)
+
+        events = [call[0][1]["event"] for call in broker.publish.call_args_list]
+        assert "task_failed" in events
+
+    @pytest.mark.asyncio
+    async def test_plan_stopped_event(self, tmp_path, executor_deps):
+        """request_stop should emit plan_stopped event."""
+        executor, broker = self._make_executor_with_broker(executor_deps)
+        plan = _make_plan(tmp_path, tasks=[
+            SubTask(task_id="T.1", title="Test", description="Test task"),
+        ])
+        executor.request_stop()
+
+        with patch("core.task_executor._run_git", new_callable=AsyncMock) as mock_git:
+            mock_git.return_value = (0, "")
+            await executor.execute_plan(plan)
+
+        events = [call[0][1]["event"] for call in broker.publish.call_args_list]
+        assert "plan_stopped" in events

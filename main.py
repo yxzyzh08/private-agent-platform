@@ -20,7 +20,10 @@ from core.event_bus import EventBus
 from core.logging import get_logger, setup_logging
 from core.tool_registry import ToolRegistry
 from channels.github_webhook.channel import GitHubWebhookChannel
+from core.plan_event_broker import PlanEventBroker
+from routes.projects import router as projects_router
 from routes.requirements import router as requirements_router
+from routes.requirements_sse import router as requirements_sse_router
 from tools.claude_code_cli import ClaudeCodeCliTool
 from tools.event_bus_tool import EventBusTool
 from tools.git_tool import GitTool
@@ -108,12 +111,19 @@ def create_app() -> FastAPI:
     app.state.tool_registry = tool_registry
     app.state.channel_manager = channel_manager
     app.state.config = config
+    app.state.plan_event_broker = PlanEventBroker()
 
     # Register channel routes on the app
     github_channel.register_routes(app)
 
     # Register Phase 1C requirement API routes
     app.include_router(requirements_router)
+
+    # Register Phase 1D project API routes
+    app.include_router(projects_router)
+
+    # Register Phase 1D SSE routes
+    app.include_router(requirements_sse_router)
 
     @app.get("/health")
     async def health_check():

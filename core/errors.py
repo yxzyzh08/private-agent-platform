@@ -65,3 +65,14 @@ class CyclicDependencyError(TaskPlanError):
 
 class PhaseParseError(TaskPlanError):
     """Raised when a phase markdown file cannot be parsed."""
+
+
+# Phase 1D: Project initialization & SSE errors
+
+
+class ProjectInitError(PlatformError):
+    """Raised when project initialization fails."""
+
+
+class SSEConnectionError(PlatformError):
+    """Raised when SSE connection encounters an error."""

@@ -59,6 +59,17 @@ task_planning:
     - "*.key"
     - "*.pem"
 
+project_initialization:
+  allowed_base_paths:
+    - /home/ecs-user/github_projects
+    - /tmp/projects
+  git_user:
+    name: "Claude Dev Bot"
+    email: "bot@private-agent-platform.local"
+
+sse:
+  heartbeat_interval_seconds: 30
+
 cui:
   host: "0.0.0.0"
   port: 3001

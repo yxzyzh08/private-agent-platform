@@ -54,9 +54,9 @@ def _get_dev_agent(request: Request):
     if agent is None:
         from agents.dev_agent import DevAgent
 
-        config = getattr(request.app.state, "config", {})
         tool_registry = getattr(request.app.state, "tool_registry", None)
-        agent = DevAgent(tool_registry=tool_registry)
+        event_broker = getattr(request.app.state, "plan_event_broker", None)
+        agent = DevAgent(tool_registry=tool_registry, event_broker=event_broker)
         request.app.state.dev_agent = agent
     return agent
 

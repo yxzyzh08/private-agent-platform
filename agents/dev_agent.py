@@ -82,6 +82,7 @@ class DevAgent(BaseAgent):
         tool_registry: Any = None,
         notifier: Notifier | None = None,
         pending_store: PendingIssueStore | None = None,
+        event_broker: Any = None,
     ) -> None:
         super().__init__(
             agent_id="dev_bot",
@@ -90,6 +91,7 @@ class DevAgent(BaseAgent):
         )
         self._notifier = notifier or Notifier()
         self._pending_store = pending_store or PendingIssueStore()
+        self._event_broker = event_broker
 
     @property
     def repos(self) -> list[dict]:
@@ -379,6 +381,7 @@ class DevAgent(BaseAgent):
             notifier=self._notifier,
             config=task_config,
             store=store,
+            event_broker=self._event_broker,
         )
 
         store.save(plan)
@@ -412,6 +415,7 @@ class DevAgent(BaseAgent):
             notifier=self._notifier,
             config=config.get("task_planning", {}),
             store=store,
+            event_broker=self._event_broker,
         )
         return plan, executor, store
 
