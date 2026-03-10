@@ -832,7 +832,7 @@ uv run pytest tests/ -v  # 全量回归，确认 247 个测试不受影响
 
 ### Task 1C.11: L2 集成测试 — Mock 全流程
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1C.6, Task 1C.7
 **产出文件**: `tests/integration/test_requirement_flow.py`
 
