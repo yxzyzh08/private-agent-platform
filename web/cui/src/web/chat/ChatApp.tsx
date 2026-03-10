@@ -6,6 +6,7 @@ import { ConversationView } from './components/ConversationView/ConversationView
 import { ConversationsProvider } from './contexts/ConversationsContext';
 import { StreamStatusProvider } from './contexts/StreamStatusContext';
 import { PreferencesProvider } from './contexts/PreferencesContext';
+import { RequirementProvider } from './contexts/RequirementContext';
 import './styles/global.css';
 
 function ChatApp() {
@@ -13,18 +14,20 @@ function ChatApp() {
     <PreferencesProvider>
       <StreamStatusProvider>
         <ConversationsProvider>
-          <Routes>
-            <Route path="/" element={
-              <Layout>
-                <Home />
-              </Layout>
-            } />
-            <Route path="/c/:sessionId" element={
-              <Layout>
-                <ConversationView />
-              </Layout>
-            } />
-          </Routes>
+          <RequirementProvider>
+            <Routes>
+              <Route path="/" element={
+                <Layout>
+                  <Home />
+                </Layout>
+              } />
+              <Route path="/c/:sessionId" element={
+                <Layout>
+                  <ConversationView />
+                </Layout>
+              } />
+            </Routes>
+          </RequirementProvider>
         </ConversationsProvider>
       </StreamStatusProvider>
     </PreferencesProvider>

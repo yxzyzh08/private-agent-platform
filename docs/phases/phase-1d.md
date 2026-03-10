@@ -367,7 +367,7 @@ uv run pytest tests/ -v  # 全量回归
 
 ### Task 1D.4: Platform MCP Server
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.1
 **产出文件**: `web/cui/src/mcp-server/platform-tools.ts`, `web/cui/tests/unit/platform-tools.test.ts`
 
@@ -408,7 +408,7 @@ cd web/cui && npm test -- platform-tools
 
 ### Task 1D.5: MCP Server 注册到 Claude Code
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.4
 **产出文件**: `web/cui/src/services/mcp-config-generator.ts`（扩展）
 
@@ -490,7 +490,7 @@ uv run pytest tests/unit/test_phase_templates.py -v
 
 ### Task 1D.7: cui Server API 代理路由
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.1, Task 1D.2
 **产出文件**: `web/cui/src/routes/platform-proxy.routes.ts`, `web/cui/tests/unit/platform-proxy.test.ts`
 
@@ -529,7 +529,7 @@ cd web/cui && npm test -- platform-proxy
 
 ### Task 1D.8: RequirementPanel 前端组件
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.7
 **产出文件**: `web/cui/src/web/chat/components/RequirementPanel/RequirementPanel.tsx`, `web/cui/src/web/chat/components/RequirementPanel/TaskCard.tsx`, `web/cui/src/web/chat/components/RequirementPanel/index.ts`
 
@@ -573,7 +573,7 @@ cd web/cui && npm test -- RequirementPanel
 
 ### Task 1D.9: Layout 集成 + RequirementContext
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.8
 **产出文件**: `web/cui/src/web/chat/contexts/RequirementContext.tsx`, `web/cui/src/web/chat/components/Layout/Layout.tsx`（扩展）
 
