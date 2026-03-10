@@ -1,7 +1,7 @@
 """Claude Code CLI tool — async subprocess wrapper.
 
 Spawns a Claude Code CLI subprocess with JSON output mode.
-Used by Phase 1B GitHub Issue automation.
+Used by Phase 1B GitHub Issue automation and Phase 1C task execution.
 """
 
 from __future__ import annotations
@@ -9,12 +9,17 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import signal
 import time
 
 from core.audit import log_tool_call
+from core.logging import get_logger
 from tools.base import BaseTool, ToolResult
 
+logger = get_logger(__name__)
+
 _DEFAULT_TIMEOUT = 600  # 10 minutes
+_KILL_GRACE_PERIOD = 5  # seconds to wait after SIGTERM before SIGKILL
 _SENSITIVE_ENV_VARS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GITHUB_TOKEN")
 
 
@@ -42,11 +47,12 @@ class ClaudeCodeCliTool(BaseTool):
         "required": ["prompt"],
     }
 
-    async def execute(self, params: dict) -> ToolResult:
+    async def execute(self, params: dict, agent_id: str = "dev_bot") -> ToolResult:
         """Execute Claude Code CLI as an async subprocess.
 
         Args:
             params: Must contain 'prompt', optionally 'working_directory' and 'timeout'.
+            agent_id: ID of the calling agent for audit logging.
 
         Returns:
             ToolResult with CLI output or error details.
@@ -56,7 +62,7 @@ class ClaudeCodeCliTool(BaseTool):
         result = await self._execute_cli(params)
         duration_ms = int((time.monotonic() - start_time) * 1000)
         log_tool_call(
-            agent_id="unknown",
+            agent_id=agent_id,
             tool_name=self.name,
             params=params,
             result_status="success" if result.success else "error",
@@ -90,13 +96,13 @@ class ClaudeCodeCliTool(BaseTool):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
                 env=env,
+                start_new_session=True,  # Create new process group for safe killpg
             )
 
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
             except asyncio.TimeoutError:
-                process.kill()
-                await process.wait()
+                await _kill_process_group(process)
                 return ToolResult(
                     success=False,
                     error=f"Claude Code CLI timed out after {timeout}s and was terminated",
@@ -126,3 +132,21 @@ class ClaudeCodeCliTool(BaseTool):
             )
         except OSError as e:
             return ToolResult(success=False, error=f"Failed to start CLI process: {e}")
+
+
+async def _kill_process_group(process: asyncio.subprocess.Process) -> None:
+    """Kill the process group with SIGTERM → SIGKILL escalation."""
+    try:
+        pgid = os.getpgid(process.pid)
+        os.killpg(pgid, signal.SIGTERM)
+        logger.info("Sent SIGTERM to process group %d", pgid)
+        try:
+            await asyncio.wait_for(process.wait(), timeout=_KILL_GRACE_PERIOD)
+        except asyncio.TimeoutError:
+            os.killpg(pgid, signal.SIGKILL)
+            logger.warning("Escalated to SIGKILL for process group %d", pgid)
+            await process.wait()
+    except ProcessLookupError:
+        pass  # Process already exited
+    except PermissionError:
+        logger.warning("Permission denied killing process group for pid %d", process.pid)

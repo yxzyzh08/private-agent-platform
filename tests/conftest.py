@@ -135,3 +135,111 @@ def mock_session_rotator():
         return_value=RotationResult(success=True, result="done", total_rotations=0)
     )
     return rotator
+
+
+# --- Phase 1C fixtures ---
+
+
+@pytest.fixture
+def sample_phase_file(tmp_path):
+    """Generate a standard-format phase-N.md test file with 3 tasks."""
+    content = """\
+# Phase Test: Sample
+
+**分支**: `feat/test`
+**目标**: Test phase file
+
+---
+
+### Task T.1: Create module
+
+**状态**: [ ] 未开始
+**依赖**: 无
+**产出文件**: `src/module.py`
+
+**描述**:
+Create the main module.
+
+**测试命令**:
+```bash
+uv run pytest tests/ -v
+```
+
+---
+
+### Task T.2: Add tests
+
+**状态**: [ ] 未开始
+**依赖**: Task T.1
+**产出文件**: `tests/test_module.py`
+
+**描述**:
+Write tests for the module.
+
+**测试命令**:
+```bash
+uv run pytest tests/test_module.py -v
+```
+
+---
+
+### Task T.3: Documentation
+
+**状态**: [ ] 未开始
+**依赖**: Task T.1
+**产出文件**: `docs/module.md`
+
+**描述**:
+Write documentation.
+"""
+    path = tmp_path / "test-phase.md"
+    path.write_text(content)
+    return path
+
+
+@pytest.fixture
+def sample_subtasks():
+    """Standard SubTask list for testing."""
+    from core.task_planner import SubTask
+
+    return [
+        SubTask(task_id="T.1", title="Create module", description="Create the main module."),
+        SubTask(
+            task_id="T.2",
+            title="Add tests",
+            description="Write tests.",
+            depends_on=["T.1"],
+        ),
+        SubTask(
+            task_id="T.3",
+            title="Documentation",
+            description="Write docs.",
+            depends_on=["T.1"],
+        ),
+    ]
+
+
+@pytest.fixture
+def sample_task_plan(sample_subtasks):
+    """Standard TaskPlan for testing."""
+    from core.task_planner import TaskPlan
+
+    return TaskPlan(
+        plan_id="test-plan-001",
+        phase_file="docs/phases/test-phase.md",
+        source="cui",
+        repo_path="/tmp/test-repo",
+        branch="feat/test",
+        tasks=sample_subtasks,
+    )
+
+
+@pytest.fixture
+def mock_task_executor():
+    """Mock TaskExecutor with CLI execution mocked."""
+    from tools.base import ToolResult
+
+    executor = AsyncMock()
+    executor.execute_plan = AsyncMock()
+    executor.execute_subtask = AsyncMock()
+    return executor

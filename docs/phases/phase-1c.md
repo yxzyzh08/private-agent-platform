@@ -782,7 +782,7 @@ uv run pytest tests/unit/test_config.py tests/unit/test_errors.py -v
 
 ### Task 1C.10: 修复已知问题 + 测试 Fixtures
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: 无
 **产出文件**: `tools/claude_code_cli.py` 修复, `tests/conftest.py` 扩展
 
