@@ -395,22 +395,23 @@ platforms:
 
 **需求驱动开发（Phase 1C — 大需求分解 + 多任务独立执行，解决上下文膨胀问题）**:
 
-> **Mode C 是 Mode A 的自动化升级**。当需求较复杂、单次 Claude Code 会话无法完成时，Owner 在 cui 中与 Claude Code 多轮对话完成需求澄清和任务分解（人机协作） → Owner 确认任务列表后提交给平台 → dev_bot 逐个在全新 Claude CLI 上下文中独立执行子任务 → 逐个验证 → 统一创建 PR。需求澄清和任务分解的质量由人机协作保证，平台只负责自动化执行。Mode B（Issue 自动化）和 Mode C（需求驱动开发）可共存，分别处理不同场景。
+> **Mode C 是 Mode A 的自动化升级**。采用 **Markdown-First + JSON Runtime** 架构：Owner 在 cui 中与 Claude Code 协作产出 phase-N.md（需求澄清+任务分解，格式与本项目 phase-1a/1b 一致）→ Owner 确认后 CLI 调用 `POST /api/requirements/from-phase` → 平台 PhaseFileParser 解析 markdown 为 TaskPlan JSON → dev_bot 逐个在全新 CLI 上下文中独立执行 → 每个子任务完成后回写 phase-N.md `[x]` + 更新 JSON → 全部完成创建 PR。phase-N.md 是 Source of Truth（人负责写改审），JSON 是 Runtime State（丢了可重建）。Mode B 和 Mode C 共存。
 
 | # | 功能 | 优先级 |
 |---|------|--------|
-| DV-18 | 需求澄清与任务分解（人机协作）：Owner 在 cui 中与 Claude Code 多轮对话，完成需求澄清和任务分解 | P0 |
-| DV-19 | 任务计划提交与校验：接收 Owner 确认的任务列表，校验格式/依赖/数量后持久化并触发执行 | P0 |
+| DV-18 | 需求澄清与任务分解（人机协作）：Owner 在 cui 中与 Claude Code 多轮对话，协作产出 phase-N.md 文件（格式与项目现有 phase 文件一致） | P0 |
+| DV-19 | PhaseFileParser：解析 phase-N.md 为 TaskPlan JSON（regex 解析，~120 行），支持回写 `[ ]` → `[x]` | P0 |
 | DV-20 | （已合并到 DV-18，需求澄清和任务分解是同一个对话流中的连续过程） | — |
-| DV-21 | 多任务串行执行：按拓扑序逐个调用 Claude CLI（每个子任务=全新上下文） | P0 |
+| DV-21 | 多任务串行执行：按拓扑序逐个调用 Claude CLI（每个子任务=全新上下文），prompt 含 Session Recovery 覆盖指令 | P0 |
 | DV-22 | 上下文传递：前序任务的结果摘要注入后续任务的 prompt | P0 |
-| DV-23 | Git Checkpoint：每个子任务完成后自动 commit，支持回滚到任意 checkpoint | P0 |
+| DV-23 | Smart Checkpoint：检查 `git status --porcelain` 后选择性 commit + 回写 phase-N.md `[x]` | P0 |
 | DV-24 | 失败处理：子任务失败自动暂停，支持重试/重试+反馈/跳过/终止 | P0 |
-| DV-25 | 敏感文件保护：子任务修改 .env 等敏感文件时自动回滚并通知 | P0 |
+| DV-25 | 敏感文件保护：子任务修改 .env 等敏感文件时自动回滚 + 撤销 markdown 回写并通知 | P0 |
 | DV-26 | 执行进度通知：ntfy 推送关键事件（开始、完成、失败），cui 展示实时进度 | P1 |
 | DV-27 | 紧急停止：Owner 可随时终止执行，保留已完成的 checkpoints | P1 |
 | DV-28 | 连续失败保护：连续 2 个子任务失败自动终止计划 | P1 |
-| DV-29 | 需求开发 REST API：供 cui 前端调用的管理端点 | P0 |
+| DV-29 | 需求开发 REST API：`POST /api/requirements/from-phase` 为核心端点，另含 abort/retry/skip 控制端点 | P0 |
+| DV-30 | Phase 文件模板：提供 phase-template.md + CLAUDE.md 扩展模板，支持新项目初始化 | P1 |
 
 **工具权限**（Phase 1B 自动化流程使用）:
 - ✅ `claude_code_cli` — 核心执行引擎（子进程调用）
