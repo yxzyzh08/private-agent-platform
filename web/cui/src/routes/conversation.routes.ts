@@ -220,9 +220,14 @@ export function createConversationRoutes(
       requestId,
       query: req.query
     });
-    
+
     try {
-      const result = await historyReader.listConversations(req.query);
+      // Parse sessionType from query params
+      const query: ConversationListQuery = { ...req.query };
+      if (req.query.sessionType) {
+        query.sessionType = req.query.sessionType as string;
+      }
+      const result = await historyReader.listConversations(query);
       
       // Update status for each conversation based on active streams
       const conversationsWithStatus = result.conversations.map(conversation => {
@@ -583,6 +588,62 @@ export function createConversationRoutes(
     }
   });
 
+  // Helper: delete JSONL file for a session
+  async function deleteJsonlFile(sessionId: string): Promise<void> {
+    try {
+      const projectsPath = path.join(historyReader.homePath, 'projects');
+      const projectDirs = await fsPromises.readdir(projectsPath);
+      for (const projectDir of projectDirs) {
+        const jsonlPath = path.join(projectsPath, projectDir, `${sessionId}.jsonl`);
+        try {
+          await fsPromises.unlink(jsonlPath);
+          logger.info('Deleted JSONL history file', { sessionId, jsonlPath });
+          break;
+        } catch {
+          // File not in this project dir, continue searching
+        }
+      }
+    } catch (fsError) {
+      logger.warn('Failed to delete JSONL history file', {
+        sessionId,
+        error: fsError instanceof Error ? fsError.message : String(fsError)
+      });
+    }
+  }
+
+  // Batch delete sessions (must be before /:sessionId to avoid param capture)
+  router.delete('/batch', async (req: RequestWithRequestId, res, next) => {
+    const requestId = req.requestId;
+    const { sessionIds } = req.body as { sessionIds?: string[] };
+
+    logger.debug('Batch delete sessions request', { requestId, count: sessionIds?.length });
+
+    try {
+      if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'sessionIds array is required' });
+      }
+
+      // Batch delete from SQLite
+      const deletedCount = await sessionInfoService.batchDeleteSessions(sessionIds);
+
+      // Delete JSONL files
+      await Promise.all(sessionIds.map(id => deleteJsonlFile(id)));
+
+      // Clear cache so deleted sessions don't show up
+      historyReader.clearCache();
+
+      logger.info('Batch delete completed', { requestId, deletedCount });
+
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      logger.debug('Batch delete failed', {
+        requestId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      next(error);
+    }
+  });
+
   // Delete a session permanently
   router.delete('/:sessionId', async (req: RequestWithRequestId, res, next) => {
     const { sessionId } = req.params;
@@ -595,27 +656,7 @@ export function createConversationRoutes(
       await sessionInfoService.deleteSession(sessionId);
 
       // Also delete the JSONL history file so syncMissingSessions() won't recreate it
-      try {
-        const projectsPath = path.join(historyReader.homePath, 'projects');
-        const projectDirs = await fsPromises.readdir(projectsPath);
-        for (const projectDir of projectDirs) {
-          const jsonlPath = path.join(projectsPath, projectDir, `${sessionId}.jsonl`);
-          try {
-            await fsPromises.unlink(jsonlPath);
-            logger.info('Deleted JSONL history file', { requestId, sessionId, jsonlPath });
-            break; // Found and deleted, stop searching
-          } catch {
-            // File not in this project dir, continue searching
-          }
-        }
-      } catch (fsError) {
-        logger.warn('Failed to delete JSONL history file', {
-          requestId,
-          sessionId,
-          error: fsError instanceof Error ? fsError.message : String(fsError)
-        });
-        // Non-fatal: session info already deleted, this is best-effort cleanup
-      }
+      await deleteJsonlFile(sessionId);
 
       logger.info('Session deleted successfully', { requestId, sessionId });
 

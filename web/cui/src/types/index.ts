@@ -147,6 +147,7 @@ export interface ConversationListQuery {
   hasContinuation?: boolean;
   archived?: boolean;
   pinned?: boolean;
+  sessionType?: string;
 }
 
 export interface ConversationDetailsResponse {
@@ -242,6 +243,7 @@ export interface SessionInfo {
   continuation_session_id: string; // ID of the continuation session if exists, default: ""
   initial_commit_head: string;  // Git commit HEAD when session started, default: ""
   permission_mode: string;      // Permission mode used for the session, default: "default"
+  session_type: string;         // Session type: 'user' | 'agent', default: "user"
 }
 
 

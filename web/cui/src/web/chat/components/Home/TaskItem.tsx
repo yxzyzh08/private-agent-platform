@@ -24,6 +24,9 @@ interface TaskItemProps {
   liveStatus?: StreamStatus;
   isArchived?: boolean;
   isPinned?: boolean;
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   onClick: () => void;
   onCancel?: () => void;
   onArchive?: () => void;
@@ -45,6 +48,9 @@ export function TaskItem({
   liveStatus,
   isArchived = false,
   isPinned = false,
+  isSelectable = false,
+  isSelected = false,
+  onToggleSelect,
   isRenaming = false,
   onClick,
   onCancel,
@@ -112,7 +118,24 @@ export function TaskItem({
         }}
         href={`/c/${_id}`}
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 w-full px-4 py-3.5 border-b border-border/30 text-sm">
+        <div className={`grid ${isSelectable ? 'grid-cols-[auto_minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'} items-center gap-5 w-full px-4 py-3.5 border-b border-border/30 text-sm`}>
+          {isSelectable && (
+            <div
+              className="flex items-center"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleSelect?.();
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => {}}
+                className="rounded border-border cursor-pointer"
+              />
+            </div>
+          )}
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1.5 w-full min-w-0 text-foreground">
               {isRenaming ? (

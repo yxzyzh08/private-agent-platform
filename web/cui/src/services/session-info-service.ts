@@ -16,6 +16,7 @@ type SessionRow = {
   continuation_session_id: string;
   initial_commit_head: string;
   permission_mode: string;
+  session_type: string;
 };
 
 /**
@@ -105,7 +106,8 @@ export class SessionInfoService {
           archived INTEGER NOT NULL DEFAULT 0,
           continuation_session_id TEXT NOT NULL DEFAULT '',
           initial_commit_head TEXT NOT NULL DEFAULT '',
-          permission_mode TEXT NOT NULL DEFAULT 'default'
+          permission_mode TEXT NOT NULL DEFAULT 'default',
+          session_type TEXT NOT NULL DEFAULT 'user'
         );
         CREATE TABLE IF NOT EXISTS metadata (
           key TEXT PRIMARY KEY,
@@ -113,8 +115,15 @@ export class SessionInfoService {
         );
       `);
 
-      this.prepareStatements();
+      // Prepare metadata statements first (they don't depend on sessions schema)
+      this.setMetadataStmt = this.db.prepare('INSERT INTO metadata (key, value) VALUES (@key, @value) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+      this.getMetadataStmt = this.db.prepare('SELECT value FROM metadata WHERE key = ?');
+
+      // Run schema migration (may ALTER TABLE sessions)
       this.ensureMetadata();
+
+      // Now prepare all statements (including session statements with session_type)
+      this.prepareStatements();
       this.isInitialized = true;
     } catch (error) {
       this.logger.error('Failed to initialize session info database', error);
@@ -135,7 +144,8 @@ export class SessionInfoService {
         archived,
         continuation_session_id,
         initial_commit_head,
-        permission_mode
+        permission_mode,
+        session_type
       ) VALUES (
         @session_id,
         @custom_name,
@@ -146,7 +156,8 @@ export class SessionInfoService {
         @archived,
         @continuation_session_id,
         @initial_commit_head,
-        @permission_mode
+        @permission_mode,
+        @session_type
       )
     `);
     this.updateSessionStmt = this.db.prepare(`
@@ -158,6 +169,7 @@ export class SessionInfoService {
         continuation_session_id=@continuation_session_id,
         initial_commit_head=@initial_commit_head,
         permission_mode=@permission_mode,
+        session_type=@session_type,
         version=@version
       WHERE session_id=@session_id
     `);
@@ -173,9 +185,19 @@ export class SessionInfoService {
     const now = new Date().toISOString();
     const schema = this.getMetadataStmt.get('schema_version') as { value?: string } | undefined;
     if (!schema) {
-      this.setMetadataStmt.run({ key: 'schema_version', value: '3' });
+      this.setMetadataStmt.run({ key: 'schema_version', value: '4' });
       this.setMetadataStmt.run({ key: 'created_at', value: now });
       this.setMetadataStmt.run({ key: 'last_updated', value: now });
+      // New DB — session_type column already in CREATE TABLE
+    } else {
+      const currentVersion = parseInt(schema.value || '0', 10);
+      if (currentVersion < 4) {
+        // Migrate v3 → v4: add session_type column
+        this.db.exec(`ALTER TABLE sessions ADD COLUMN session_type TEXT NOT NULL DEFAULT 'user'`);
+        this.setMetadataStmt.run({ key: 'schema_version', value: '4' });
+        this.setMetadataStmt.run({ key: 'last_updated', value: now });
+        this.logger.info('Schema migrated from v3 to v4: added session_type column');
+      }
     }
   }
 
@@ -189,7 +211,8 @@ export class SessionInfoService {
       archived: !!row.archived,
       continuation_session_id: row.continuation_session_id,
       initial_commit_head: row.initial_commit_head,
-      permission_mode: row.permission_mode
+      permission_mode: row.permission_mode,
+      session_type: row.session_type || 'user'
     };
   }
 
@@ -205,24 +228,26 @@ export class SessionInfoService {
         custom_name: '',
         created_at: now,
         updated_at: now,
-        version: 3,
+        version: 4,
         pinned: false,
         archived: false,
         continuation_session_id: '',
         initial_commit_head: '',
-        permission_mode: 'default'
+        permission_mode: 'default',
+        session_type: 'user'
       };
       this.insertSessionStmt.run({
         session_id: sessionId,
         custom_name: '',
         created_at: now,
         updated_at: now,
-        version: 3,
+        version: 4,
         pinned: 0,
         archived: 0,
         continuation_session_id: '',
         initial_commit_head: '',
-        permission_mode: 'default'
+        permission_mode: 'default',
+        session_type: 'user'
       });
       this.setMetadataStmt.run({ key: 'last_updated', value: now });
       return defaultSession;
@@ -233,12 +258,13 @@ export class SessionInfoService {
         custom_name: '',
         created_at: now,
         updated_at: now,
-        version: 3,
+        version: 4,
         pinned: false,
         archived: false,
         continuation_session_id: '',
         initial_commit_head: '',
-        permission_mode: 'default'
+        permission_mode: 'default',
+        session_type: 'user'
       };
     }
   }
@@ -262,6 +288,7 @@ export class SessionInfoService {
           continuation_session_id: updatedSession.continuation_session_id,
           initial_commit_head: updatedSession.initial_commit_head,
           permission_mode: updatedSession.permission_mode,
+          session_type: updatedSession.session_type,
           version: updatedSession.version
         });
         this.setMetadataStmt.run({ key: 'last_updated', value: now });
@@ -271,12 +298,13 @@ export class SessionInfoService {
           custom_name: '',
           created_at: now,
           updated_at: now,
-          version: 3,
+          version: 4,
           pinned: false,
           archived: false,
           continuation_session_id: '',
           initial_commit_head: '',
           permission_mode: 'default',
+          session_type: 'user',
           ...updates
         };
         this.insertSessionStmt.run({
@@ -289,7 +317,8 @@ export class SessionInfoService {
           archived: newSession.archived ? 1 : 0,
           continuation_session_id: newSession.continuation_session_id,
           initial_commit_head: newSession.initial_commit_head,
-          permission_mode: newSession.permission_mode
+          permission_mode: newSession.permission_mode,
+          session_type: newSession.session_type
         });
         this.setMetadataStmt.run({ key: 'last_updated', value: now });
         return newSession;
@@ -396,6 +425,34 @@ export class SessionInfoService {
     }
   }
 
+  async updateSessionType(sessionId: string, sessionType: string): Promise<void> {
+    await this.updateSessionInfo(sessionId, { session_type: sessionType });
+  }
+
+  async batchDeleteSessions(sessionIds: string[]): Promise<number> {
+    this.logger.info('Batch deleting sessions', { count: sessionIds.length });
+    try {
+      const transaction = this.db.transaction((ids: string[]) => {
+        let deleted = 0;
+        for (const id of ids) {
+          const result = this.deleteSessionStmt.run(id);
+          if (result.changes > 0) deleted++;
+        }
+        if (deleted > 0) {
+          const now = new Date().toISOString();
+          this.setMetadataStmt.run({ key: 'last_updated', value: now });
+        }
+        return deleted;
+      });
+      const deletedCount = transaction(sessionIds);
+      this.logger.info('Batch delete completed', { deletedCount });
+      return deletedCount;
+    } catch (error) {
+      this.logger.error('Failed to batch delete sessions', error);
+      throw new Error(`Failed to batch delete sessions: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   async syncMissingSessions(sessionIds: string[]): Promise<number> {
     try {
       const now = new Date().toISOString();
@@ -410,18 +467,20 @@ export class SessionInfoService {
           archived,
           continuation_session_id,
           initial_commit_head,
-          permission_mode
+          permission_mode,
+          session_type
         ) VALUES (
           @session_id,
           '',
           @now,
           @now,
-          3,
+          4,
           0,
           0,
           '',
           '',
-          'default'
+          'default',
+          'user'
         )
       `);
       const transaction = this.db.transaction((ids: string[]) => {

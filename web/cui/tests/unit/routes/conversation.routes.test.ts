@@ -225,6 +225,53 @@ describe('Conversation Routes - Unified Start/Resume Endpoint', () => {
     });
   });
 
+  describe('DELETE /api/conversations/batch', () => {
+    beforeEach(() => {
+      sessionInfoService.batchDeleteSessions = vi.fn();
+      historyReader.homePath = '/tmp/test-claude' as any;
+      historyReader.clearCache = vi.fn();
+    });
+
+    it('should batch delete sessions successfully', async () => {
+      sessionInfoService.batchDeleteSessions.mockResolvedValue(3);
+
+      const response = await request(app)
+        .delete('/api/conversations/batch')
+        .send({ sessionIds: ['s1', 's2', 's3'] });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, deletedCount: 3 });
+      expect(sessionInfoService.batchDeleteSessions).toHaveBeenCalledWith(['s1', 's2', 's3']);
+    });
+
+    it('should return 400 for missing sessionIds', async () => {
+      const response = await request(app)
+        .delete('/api/conversations/batch')
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should return 400 for empty sessionIds array', async () => {
+      const response = await request(app)
+        .delete('/api/conversations/batch')
+        .send({ sessionIds: [] });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should handle service errors', async () => {
+      sessionInfoService.batchDeleteSessions.mockRejectedValue(new Error('DB error'));
+
+      const response = await request(app)
+        .delete('/api/conversations/batch')
+        .send({ sessionIds: ['s1'] });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
   describe('POST /api/conversations/archive-all', () => {
     beforeEach(() => {
       sessionInfoService.archiveAllSessions = vi.fn();

@@ -61,5 +61,67 @@ describe('SessionInfoService with SQLite', () => {
     expect(stats.sessionCount).toBe(1);
     expect(stats.lastUpdated).toBeTypeOf('string');
   });
+
+  // Phase 1E: session_type tests
+  describe('session_type support', () => {
+    it('should default session_type to user', async () => {
+      const info = await service.getSessionInfo('new-sess');
+      expect(info.session_type).toBe('user');
+    });
+
+    it('should update session_type via updateSessionType', async () => {
+      await service.getSessionInfo('agent-sess');
+      await service.updateSessionType('agent-sess', 'agent');
+      const info = await service.getSessionInfo('agent-sess');
+      expect(info.session_type).toBe('agent');
+    });
+
+    it('should preserve session_type across updates', async () => {
+      await service.updateSessionInfo('typed-sess', { session_type: 'agent' });
+      await service.updateSessionInfo('typed-sess', { custom_name: 'My Agent' });
+      const info = await service.getSessionInfo('typed-sess');
+      expect(info.session_type).toBe('agent');
+      expect(info.custom_name).toBe('My Agent');
+    });
+
+    it('should include session_type in getAllSessionInfo', async () => {
+      await service.updateSessionInfo('user1', { session_type: 'user' });
+      await service.updateSessionInfo('agent1', { session_type: 'agent' });
+      const all = await service.getAllSessionInfo();
+      expect(all['user1'].session_type).toBe('user');
+      expect(all['agent1'].session_type).toBe('agent');
+    });
+  });
+
+  // Phase 1E: batch delete tests
+  describe('batchDeleteSessions', () => {
+    it('should delete multiple sessions atomically', async () => {
+      await service.updateSessionInfo('a', { custom_name: 'A' });
+      await service.updateSessionInfo('b', { custom_name: 'B' });
+      await service.updateSessionInfo('c', { custom_name: 'C' });
+
+      const deletedCount = await service.batchDeleteSessions(['a', 'b']);
+      expect(deletedCount).toBe(2);
+
+      const all = await service.getAllSessionInfo();
+      expect(Object.keys(all)).toEqual(['c']);
+    });
+
+    it('should return 0 for non-existent sessions', async () => {
+      const deletedCount = await service.batchDeleteSessions(['nonexistent1', 'nonexistent2']);
+      expect(deletedCount).toBe(0);
+    });
+
+    it('should handle empty array', async () => {
+      const deletedCount = await service.batchDeleteSessions([]);
+      expect(deletedCount).toBe(0);
+    });
+
+    it('should handle mix of existing and non-existing', async () => {
+      await service.updateSessionInfo('exists', { custom_name: 'E' });
+      const deletedCount = await service.batchDeleteSessions(['exists', 'not-exists']);
+      expect(deletedCount).toBe(1);
+    });
+  });
 });
 

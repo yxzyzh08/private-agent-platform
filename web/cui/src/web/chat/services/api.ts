@@ -70,6 +70,7 @@ class ApiService {
     hasContinuation?: boolean;
     archived?: boolean;
     pinned?: boolean;
+    sessionType?: string;
   }): Promise<{ conversations: ConversationSummary[]; total: number }> {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.append('limit', params.limit.toString());
@@ -78,6 +79,7 @@ class ApiService {
     if (params?.hasContinuation !== undefined) searchParams.append('hasContinuation', params.hasContinuation.toString());
     if (params?.archived !== undefined) searchParams.append('archived', params.archived.toString());
     if (params?.pinned !== undefined) searchParams.append('pinned', params.pinned.toString());
+    if (params?.sessionType) searchParams.append('sessionType', params.sessionType);
     searchParams.append('sortBy', 'updated');
     searchParams.append('order', 'desc');
 
@@ -200,6 +202,13 @@ class ApiService {
   async deleteSession(sessionId: string): Promise<{ success: boolean; sessionId: string }> {
     return this.apiCall(`/api/conversations/${sessionId}`, {
       method: 'DELETE',
+    });
+  }
+
+  async batchDeleteSessions(sessionIds: string[]): Promise<{ success: boolean; deletedCount: number }> {
+    return this.apiCall('/api/conversations/batch', {
+      method: 'DELETE',
+      body: JSON.stringify({ sessionIds }),
     });
   }
 

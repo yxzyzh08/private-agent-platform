@@ -90,13 +90,33 @@ export class ClaudeHistoryReader {
               archived: false,
               continuation_session_id: '',
               initial_commit_head: '',
-              permission_mode: 'default'
+              permission_mode: 'default',
+              session_type: 'user'
             };
+          }
+
+          // Detect agent sessions: check if first user message contains <teammate-message>
+          if (sessionInfo.session_type !== 'agent') {
+            const firstUserMessage = chain.messages.find(msg => msg.type === 'user');
+            if (firstUserMessage) {
+              const content = this.extractMessageContent(firstUserMessage.message);
+              if (content.includes('<teammate-message>')) {
+                sessionInfo = { ...sessionInfo, session_type: 'agent' };
+                try {
+                  await this.sessionInfoService.updateSessionType(chain.sessionId, 'agent');
+                } catch (updateError) {
+                  this.logger.warn('Failed to persist agent session type', {
+                    sessionId: chain.sessionId,
+                    error: updateError instanceof Error ? updateError.message : String(updateError)
+                  });
+                }
+              }
+            }
           }
 
           // Calculate tool metrics for this conversation
           const toolMetrics = this.toolMetricsService.calculateMetricsFromMessages(chain.messages);
-          
+
           return {
             sessionId: chain.sessionId,
             projectPath: chain.projectPath,
@@ -629,7 +649,12 @@ export class ClaudeHistoryReader {
     if (filter.pinned !== undefined) {
       filtered = filtered.filter(c => c.sessionInfo.pinned === filter.pinned);
     }
-    
+
+    // Filter by session type
+    if (filter.sessionType) {
+      filtered = filtered.filter(c => c.sessionInfo.session_type === filter.sessionType);
+    }
+
     // Sort
     if (filter.sortBy) {
       filtered.sort((a, b) => {

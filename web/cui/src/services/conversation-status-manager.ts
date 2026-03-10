@@ -238,7 +238,8 @@ export class ConversationStatusManager extends EventEmitter {
               archived: false,
               continuation_session_id: '',
               initial_commit_head: '',
-              permission_mode: 'default'
+              permission_mode: 'default',
+              session_type: 'user'
             },
             createdAt: context.timestamp,
             updatedAt: context.timestamp,

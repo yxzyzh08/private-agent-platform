@@ -19,6 +19,7 @@ interface ConversationsContextType {
     hasContinuation?: boolean;
     archived?: boolean;
     pinned?: boolean;
+    sessionType?: string;
   }) => Promise<void>;
   loadMoreConversations: () => Promise<void>;
   getMostRecentWorkingDirectory: () => string | null;

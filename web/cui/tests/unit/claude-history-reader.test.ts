@@ -17,7 +17,8 @@ const mockLogger = {
 
 // Mock SessionInfoService
 const mockSessionInfoService = {
-  getSessionInfo: vi.fn()
+  getSessionInfo: vi.fn(),
+  updateSessionType: vi.fn()
 };
 
 // Mock ToolMetricsService
@@ -608,6 +609,144 @@ describe('ClaudeHistoryReader', () => {
         const decoded = (reader as any).decodeProjectPath(encoded);
         expect(decoded).toBe('/home/user/Documents/my/project/folder');
       });
+    });
+  });
+
+  describe('agent session detection', () => {
+    it('should detect agent sessions with <teammate-message> tag', async () => {
+      const projectDir = path.join(path.join(tempDir, 'projects'), '-Users-username-agent-test');
+      await fs.mkdir(projectDir, { recursive: true });
+
+      const agentSessionId = 'agent-session-1';
+      const userSessionId = 'user-session-1';
+
+      // Agent session: first user message contains <teammate-message>
+      const agentContent = `{"type":"summary","summary":"Agent Session","leafUuid":"amsg1"}
+{"parentUuid":null,"type":"user","message":{"role":"user","content":"<teammate-message>\\nYou are a tech architect agent.\\n</teammate-message>"},"uuid":"amsg1","timestamp":"2024-01-01T00:00:00Z","sessionId":"${agentSessionId}","cwd":"/Users/username/project"}`;
+
+      // User session: normal first user message
+      const userContent = `{"type":"summary","summary":"User Session","leafUuid":"umsg1"}
+{"parentUuid":null,"type":"user","message":{"role":"user","content":"Help me with my code"},"uuid":"umsg1","timestamp":"2024-01-02T00:00:00Z","sessionId":"${userSessionId}","cwd":"/Users/username/project"}`;
+
+      await fs.writeFile(path.join(projectDir, 'agent.jsonl'), agentContent);
+      await fs.writeFile(path.join(projectDir, 'user.jsonl'), userContent);
+
+      // Mock session info to return user type by default
+      mockSessionInfoService.getSessionInfo.mockReset();
+      mockSessionInfoService.updateSessionType.mockReset();
+      mockSessionInfoService.getSessionInfo.mockResolvedValue({
+        custom_name: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 4,
+        pinned: false,
+        archived: false,
+        continuation_session_id: '',
+        initial_commit_head: '',
+        permission_mode: 'default',
+        session_type: 'user'
+      });
+      mockSessionInfoService.updateSessionType.mockResolvedValue(undefined);
+
+      reader = new ClaudeHistoryReader();
+      (reader as any).claudeHomePath = tempDir;
+      (reader as any).sessionInfoService = mockSessionInfoService;
+
+      await reader.listConversations();
+
+      // Should have called updateSessionType for the agent session
+      expect(mockSessionInfoService.updateSessionType).toHaveBeenCalledWith(agentSessionId, 'agent');
+      // Should NOT have called updateSessionType for the user session
+      const calls = mockSessionInfoService.updateSessionType.mock.calls;
+      const userCalls = calls.filter((c: string[]) => c[0] === userSessionId);
+      expect(userCalls).toHaveLength(0);
+    });
+
+    it('should not re-detect already-marked agent sessions', async () => {
+      const projectDir = path.join(path.join(tempDir, 'projects'), '-Users-username-agent-test2');
+      await fs.mkdir(projectDir, { recursive: true });
+
+      const agentSessionId = 'already-agent';
+      const agentContent = `{"type":"summary","summary":"Agent","leafUuid":"amsg1"}
+{"parentUuid":null,"type":"user","message":{"role":"user","content":"<teammate-message>\\nArch agent\\n</teammate-message>"},"uuid":"amsg1","timestamp":"2024-01-01T00:00:00Z","sessionId":"${agentSessionId}","cwd":"/test"}`;
+
+      await fs.writeFile(path.join(projectDir, 'agent.jsonl'), agentContent);
+
+      mockSessionInfoService.getSessionInfo.mockReset();
+      mockSessionInfoService.updateSessionType.mockReset();
+      mockSessionInfoService.getSessionInfo.mockResolvedValue({
+        custom_name: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        version: 4,
+        pinned: false,
+        archived: false,
+        continuation_session_id: '',
+        initial_commit_head: '',
+        permission_mode: 'default',
+        session_type: 'agent' // Already marked
+      });
+
+      reader = new ClaudeHistoryReader();
+      (reader as any).claudeHomePath = tempDir;
+      (reader as any).sessionInfoService = mockSessionInfoService;
+
+      await reader.listConversations();
+
+      // Should NOT have called updateSessionType since it's already agent
+      expect(mockSessionInfoService.updateSessionType).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sessionType filter', () => {
+    it('should filter conversations by sessionType', async () => {
+      const projectDir = path.join(path.join(tempDir, 'projects'), '-Users-username-filter-test');
+      await fs.mkdir(projectDir, { recursive: true });
+
+      const agentSessionId = 'filter-agent';
+      const userSessionId = 'filter-user';
+
+      const agentContent = `{"type":"summary","summary":"Agent","leafUuid":"a1"}
+{"parentUuid":null,"type":"user","message":{"role":"user","content":"<teammate-message>agent</teammate-message>"},"uuid":"a1","timestamp":"2024-01-01T00:00:00Z","sessionId":"${agentSessionId}","cwd":"/test"}`;
+
+      const userContent = `{"type":"summary","summary":"User","leafUuid":"u1"}
+{"parentUuid":null,"type":"user","message":{"role":"user","content":"normal user message"},"uuid":"u1","timestamp":"2024-01-02T00:00:00Z","sessionId":"${userSessionId}","cwd":"/test"}`;
+
+      await fs.writeFile(path.join(projectDir, 'agent.jsonl'), agentContent);
+      await fs.writeFile(path.join(projectDir, 'user.jsonl'), userContent);
+
+      mockSessionInfoService.getSessionInfo.mockReset();
+      mockSessionInfoService.updateSessionType.mockReset();
+      mockSessionInfoService.updateSessionType.mockResolvedValue(undefined);
+      mockSessionInfoService.getSessionInfo.mockImplementation((sessionId: string) => {
+        return Promise.resolve({
+          custom_name: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          version: 4,
+          pinned: false,
+          archived: false,
+          continuation_session_id: '',
+          initial_commit_head: '',
+          permission_mode: 'default',
+          session_type: sessionId === agentSessionId ? 'agent' : 'user'
+        });
+      });
+
+      reader = new ClaudeHistoryReader();
+      (reader as any).claudeHomePath = tempDir;
+      (reader as any).sessionInfoService = mockSessionInfoService;
+
+      // Filter for agents only
+      const agentOnly = await reader.listConversations({ sessionType: 'agent' });
+      expect(agentOnly.conversations).toHaveLength(1);
+      expect(agentOnly.conversations[0].sessionId).toBe(agentSessionId);
+
+      // Filter for users only
+      reader.clearCache();
+      const userOnly = await reader.listConversations({ sessionType: 'user' });
+      expect(userOnly.conversations).toHaveLength(1);
+      expect(userOnly.conversations[0].sessionId).toBe(userSessionId);
     });
   });
 
