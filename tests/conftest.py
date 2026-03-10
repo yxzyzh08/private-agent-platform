@@ -243,3 +243,39 @@ def mock_task_executor():
     executor.execute_plan = AsyncMock()
     executor.execute_subtask = AsyncMock()
     return executor
+
+
+# --- Phase 1D fixtures ---
+
+
+@pytest.fixture
+def mock_plan_event_broker():
+    """Mock PlanEventBroker for tests."""
+    broker = AsyncMock()
+    broker.publish = AsyncMock()
+    broker.subscribe = MagicMock(return_value=MagicMock())
+    broker.unsubscribe = MagicMock()
+    broker.subscriber_count = MagicMock(return_value=0)
+    broker.has_subscribers = MagicMock(return_value=False)
+    return broker
+
+
+@pytest.fixture
+def sample_sse_events():
+    """Standard SSE event sequence for testing."""
+    return [
+        {"event": "plan_started", "plan_id": "test-plan", "total_tasks": 3, "timestamp": 1.0},
+        {"event": "task_started", "plan_id": "test-plan", "task_id": "T.1", "title": "Create module", "timestamp": 2.0},
+        {"event": "task_completed", "plan_id": "test-plan", "task_id": "T.1", "duration_ms": 5000, "timestamp": 3.0},
+        {"event": "task_started", "plan_id": "test-plan", "task_id": "T.2", "title": "Add tests", "timestamp": 4.0},
+        {"event": "task_completed", "plan_id": "test-plan", "task_id": "T.2", "duration_ms": 3000, "timestamp": 5.0},
+        {"event": "plan_completed", "plan_id": "test-plan", "total_tasks": 3, "completed": 2, "total_duration_ms": 8000, "timestamp": 6.0},
+    ]
+
+
+@pytest.fixture
+def mock_project_init(tmp_path):
+    """Provide a temporary base path for project initialization tests."""
+    base = tmp_path / "projects"
+    base.mkdir()
+    return base

@@ -452,7 +452,7 @@ cd web/cui && npm test -- mcp-config-generator
 
 ### Task 1D.6: Phase 生成 Prompt 模板
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: 无
 **产出文件**: `config/templates/phase-generation-prompt.md`, `config/templates/claude-md-cui-workflow.md`
 
@@ -622,7 +622,7 @@ cd web/cui && npm test -- Layout RequirementContext
 
 ### Task 1D.10: L2 集成测试（后端全流程）
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.3
 **产出文件**: `tests/integration/test_cui_integration.py`
 
@@ -648,7 +648,7 @@ uv run pytest tests/integration/test_cui_integration.py -v
 
 ### Task 1D.11: 基础设施适配
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1D.10
 **产出文件**: 无新增文件（验证性任务）
 
