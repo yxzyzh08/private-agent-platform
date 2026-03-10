@@ -695,10 +695,19 @@ export class ClaudeProcessManager extends EventEmitter {
       args.push('--mcp-config', this.mcpConfigPath);
       // Add the permission prompt tool flag
       args.push('--permission-prompt-tool', 'mcp__cui-permissions__approval_prompt');
-      // Allow the MCP permission tool
+      // Allow the MCP permission tool + platform tools
+      const mcpTools = [
+        'mcp__cui-permissions__approval_prompt',
+        'mcp__platform-tools__init_project',
+        'mcp__platform-tools__submit_phase',
+        'mcp__platform-tools__get_plan_status',
+        'mcp__platform-tools__control_task',
+        'mcp__platform-tools__abort_plan',
+      ];
       const currentAllowedTools = config.allowedTools || [];
-      if (!currentAllowedTools.includes('mcp__cui-permissions__approval_prompt')) {
-        args.push('--allowedTools', 'mcp__cui-permissions__approval_prompt');
+      const newTools = mcpTools.filter(t => !currentAllowedTools.includes(t));
+      if (newTools.length > 0) {
+        args.push('--allowedTools', newTools.join(','));
       }
     }
 

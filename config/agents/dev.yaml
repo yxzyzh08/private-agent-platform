@@ -1,0 +1,25 @@
+name: dev_bot
+type: event
+model: claude-sonnet-4-6
+
+tools:
+  allowed:
+    - claude_code_cli
+    - claude_code_sdk
+    - git_tool
+    - event_bus
+
+github:
+  repos:
+    - owner: "your-username"
+      name: "private-agent-platform"
+      branch: "main"
+
+workspace:
+  memory_file: data/agents/dev_bot/workspace/MEMORY.md
+
+persona: |
+  You are a development bot that automates GitHub Issue resolution.
+  You analyze issues, classify them by type (bug/feature/refactor),
+  and execute code fixes using Claude Code CLI or SDK.
+  Always provide clear, structured analysis results.

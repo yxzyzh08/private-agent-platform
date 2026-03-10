@@ -120,14 +120,15 @@ class TestClaudeCodeCliTool:
     async def test_execute_timeout(self):
         mock_process = AsyncMock()
         mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError)
-        mock_process.kill = MagicMock()
+        mock_process.pid = 99999  # Use a safe fake PID, not a mock object
         mock_process.wait = AsyncMock()
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_process):
             with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
-                result = await self.tool.execute({"prompt": "test", "timeout": 1})
-                assert result.success is False
-                assert "timed out" in result.error
+                with patch("tools.claude_code_cli._kill_process_group", new_callable=AsyncMock):
+                    result = await self.tool.execute({"prompt": "test", "timeout": 1})
+                    assert result.success is False
+                    assert "timed out" in result.error
 
     async def test_execute_success(self):
         mock_process = AsyncMock()

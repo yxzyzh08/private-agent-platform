@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
@@ -17,7 +16,9 @@ from typing import Callable
 
 import redis.asyncio as aioredis
 
-logger = logging.getLogger(__name__)
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 _QUEUE_PREFIX = "platform:events:"
 

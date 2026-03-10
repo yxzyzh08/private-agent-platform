@@ -82,6 +82,16 @@ export class MCPConfigGenerator {
       this.logger.debug('MCP server file and Node.js validated successfully', { mcpServerPath });
     }
     
+    // Platform MCP server path (same directory as permissions server)
+    let platformToolsPath: string;
+    if (__dirname.includes('/dist/') || __dirname.includes('\\dist\\')) {
+      platformToolsPath = join(__dirname, '..', 'mcp-server', 'platform-tools.js');
+    } else {
+      platformToolsPath = join(__dirname, '..', '..', 'dist', 'mcp-server', 'platform-tools.js');
+    }
+
+    const platformApiUrl = process.env.PLATFORM_API_URL || 'http://localhost:8000';
+
     const config: MCPConfig = {
       mcpServers: {
         'cui-permissions': {
@@ -91,6 +101,13 @@ export class MCPConfigGenerator {
             CUI_SERVER_URL: `http://${host || 'localhost'}:${port}`,
             CUI_SERVER_PORT: String(port),
             LOG_LEVEL: process.env.LOG_LEVEL || 'info'
+          }
+        },
+        'platform-tools': {
+          command: 'node',
+          args: [platformToolsPath],
+          env: {
+            PLATFORM_API_URL: platformApiUrl,
           }
         }
       }

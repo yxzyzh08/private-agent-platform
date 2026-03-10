@@ -426,6 +426,7 @@ class TestDispatcher:
     def test_routes_loaded_from_config(self):
         d = Dispatcher()
         assert d.get_route("cui") == "dev_bot"
+        assert d.get_route("github_webhook") == "dev_bot"
         assert d.get_route("telegram") == "cs_bot"
 
     def test_unknown_route(self):
@@ -449,6 +450,14 @@ class TestDispatcher:
         result = await d.dispatch("cui", {"text": "hello"})
         assert result == "handled"
         handler.assert_called_once_with({"text": "hello"})
+
+    async def test_dispatch_github_webhook_to_dev_bot(self):
+        d = Dispatcher()
+        handler = AsyncMock(return_value="issue_handled")
+        d.register_agent_handler("dev_bot", handler)
+        result = await d.dispatch("github_webhook", {"issue": "test"})
+        assert result == "issue_handled"
+        handler.assert_called_once_with({"issue": "test"})
 
 
 # --- core/channel_manager.py tests ---

@@ -26,3 +26,53 @@ class RateLimitError(PlatformError):
 
 class ValidationError(PlatformError):
     """Raised when input validation fails (e.g., JSON Schema)."""
+
+
+class WebhookVerificationError(ChannelError):
+    """Raised when webhook signature verification fails."""
+
+
+class SessionRotationError(PlatformError):
+    """Raised when session rotation encounters an unrecoverable error."""
+
+
+# Phase 1C: Task Planning errors
+
+
+class TaskPlanError(PlatformError):
+    """Base error for task plan operations."""
+
+
+class TaskExecutionError(PlatformError):
+    """Error during subtask execution."""
+
+
+class SubtaskTimeoutError(TaskExecutionError):
+    """Raised when a subtask exceeds its timeout."""
+
+
+class DirtyGitStateError(TaskExecutionError):
+    """Raised when git working tree is not clean before execution."""
+
+
+class SensitiveFileError(TaskExecutionError):
+    """Raised when a subtask modifies sensitive files."""
+
+
+class CyclicDependencyError(TaskPlanError):
+    """Raised when task dependencies contain a cycle."""
+
+
+class PhaseParseError(TaskPlanError):
+    """Raised when a phase markdown file cannot be parsed."""
+
+
+# Phase 1D: Project initialization & SSE errors
+
+
+class ProjectInitError(PlatformError):
+    """Raised when project initialization fails."""
+
+
+class SSEConnectionError(PlatformError):
+    """Raised when SSE connection encounters an error."""

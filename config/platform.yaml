@@ -35,6 +35,41 @@ dispatch:
     - channel: telegram
       agent: cs_bot
 
+cli:
+  backend: "subprocess"  # "subprocess" (claude_code_cli) or "sdk" (claude_code_sdk)
+
+session_rotation:
+  context_threshold: 0.80
+  max_rotations: 3
+  summary_max_tokens: 2000
+
+task_planning:
+  max_subtasks: 10                # 单次分解最大子任务数
+  max_attempts_per_task: 2        # 单个子任务最大重试次数
+  subtask_timeout_seconds: 900    # 子任务超时 15 分钟
+  plan_timeout_seconds: 9000      # 整个需求超时 2.5 小时
+  default_max_turns: 150          # 子任务默认 max_turns
+  summary_max_tokens: 1500        # 结果摘要长度限制
+  consecutive_failure_limit: 2    # 连续失败自动终止阈值
+  auto_pr: true                   # 全部完成后自动创建 PR
+  sensitive_patterns:             # 敏感文件模式（fnmatch 匹配 basename）
+    - ".env*"
+    - "*credential*"
+    - "*.secret"
+    - "*.key"
+    - "*.pem"
+
+project_initialization:
+  allowed_base_paths:
+    - /home/ecs-user/github_projects
+    - /tmp/projects
+  git_user:
+    name: "Claude Dev Bot"
+    email: "bot@private-agent-platform.local"
+
+sse:
+  heartbeat_interval_seconds: 30
+
 cui:
   host: "0.0.0.0"
   port: 3001

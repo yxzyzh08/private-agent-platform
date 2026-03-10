@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 
+from core.audit import log_tool_call
 from tools.base import BaseTool, ToolResult
 
-_VALID_OPERATIONS = ("clone", "checkout", "commit", "push", "create_pr")
+_VALID_OPERATIONS = ("clone", "checkout", "commit", "push", "create_pr", "create_issue")
 
 
 class GitTool(BaseTool):
@@ -34,14 +36,17 @@ class GitTool(BaseTool):
             "pr_body": {"type": "string", "description": "PR body (for create_pr)"},
             "pr_base": {"type": "string", "description": "PR base branch (default: main)"},
             "pr_head": {"type": "string", "description": "PR head branch (for create_pr)"},
-            "repo_owner": {"type": "string", "description": "GitHub repo owner (for create_pr)"},
-            "repo_name": {"type": "string", "description": "GitHub repo name (for create_pr)"},
+            "repo_owner": {"type": "string", "description": "GitHub repo owner"},
+            "repo_name": {"type": "string", "description": "GitHub repo name"},
+            "issue_title": {"type": "string", "description": "Issue title (for create_issue)"},
+            "issue_body": {"type": "string", "description": "Issue body (for create_issue)"},
         },
         "required": ["operation"],
     }
 
     async def execute(self, params: dict) -> ToolResult:
         await self.validate_input(params)
+        start_time = time.monotonic()
 
         operation = params["operation"]
         handlers = {
@@ -50,13 +55,23 @@ class GitTool(BaseTool):
             "commit": self._commit,
             "push": self._push,
             "create_pr": self._create_pr,
+            "create_issue": self._create_issue,
         }
 
         handler = handlers.get(operation)
         if not handler:
             return ToolResult(success=False, error=f"Unknown operation: {operation}")
 
-        return await handler(params)
+        result = await handler(params)
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        log_tool_call(
+            agent_id="unknown",
+            tool_name=self.name,
+            params=params,
+            result_status="success" if result.success else "error",
+            duration_ms=duration_ms,
+        )
+        return result
 
     async def _run_git(self, args: list[str], cwd: str = ".") -> tuple[int, str, str]:
         """Run a git command as async subprocess."""
@@ -152,3 +167,33 @@ class GitTool(BaseTool):
             return ToolResult(success=True, data={"pr_url": pr.html_url, "pr_number": pr.number})
         except Exception as e:
             return ToolResult(success=False, error=f"Failed to create PR: {e}")
+
+    async def _create_issue(self, params: dict) -> ToolResult:
+        """Create a GitHub Issue using PyGitHub."""
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            return ToolResult(success=False, error="GITHUB_TOKEN environment variable not set")
+
+        required = ["repo_owner", "repo_name", "issue_title"]
+        missing = [k for k in required if not params.get(k)]
+        if missing:
+            return ToolResult(success=False, error=f"Missing required params: {', '.join(missing)}")
+
+        try:
+            from github import Github
+
+            g = Github(token)
+            repo = g.get_repo(f"{params['repo_owner']}/{params['repo_name']}")
+            issue = repo.create_issue(
+                title=params["issue_title"],
+                body=params.get("issue_body", ""),
+            )
+            return ToolResult(
+                success=True,
+                data={
+                    "issue_url": issue.html_url,
+                    "issue_number": issue.number,
+                },
+            )
+        except Exception as e:
+            return ToolResult(success=False, error=f"Failed to create issue: {e}")

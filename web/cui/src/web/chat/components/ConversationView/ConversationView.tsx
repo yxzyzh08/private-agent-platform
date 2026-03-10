@@ -160,6 +160,35 @@ export function ConversationView() {
 
     setError(null);
 
+    // Intercept /clear command — don't send to CLI
+    if (message.trim() === '/clear') {
+      try {
+        // Stop active process if running
+        if (streamingId) {
+          await api.stopConversation(streamingId);
+          disconnect();
+          setStreamingId(null);
+        }
+
+        // Call backend clear endpoint
+        await api.clearSession(sessionId);
+
+        // Show confirmation and navigate to home
+        addMessage({
+          id: `clear-${Date.now()}`,
+          type: 'system',
+          content: '上下文已清除，新会话已启动',
+          timestamp: new Date().toISOString(),
+        });
+
+        // Navigate to home after brief delay so user sees the message
+        setTimeout(() => navigate('/'), 800);
+      } catch (err: any) {
+        setError(err.message || 'Failed to clear session');
+      }
+      return;
+    }
+
     try {
       const response = await api.startConversation({
         resumedSessionId: sessionId,
