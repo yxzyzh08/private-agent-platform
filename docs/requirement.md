@@ -206,6 +206,7 @@ class ToolCall:
 |-------|------------|---------|
 | 1A | 速率限制、审计日志、日志脱敏、工具 Schema 校验 | `core/rate_limiter.py`, `core/audit.py` |
 | 1B | GitHub Webhook 签名验证 | `channels/github_webhook/channel.py` |
+| 1C | 敏感文件变更检测与自动回滚、子任务 prompt 安全指令注入 | `core/task_executor.py` |
 | 2 | 知识库文件路径沙箱（防止越权读取） | `tools/file_tool.py` |
 | 3 | 用户配对码验证、Prompt Injection 防护、输入净化 | `core/security.py`, `core/agent_runtime.py` |
 | 4 | Cookie 安全管理（chmod 600）、账号隔离 | `tools/browser.py` |
@@ -215,6 +216,7 @@ class ToolCall:
 | Phase | 新增存储需求 | 实现位置 |
 |-------|------------|---------|
 | 1A | Redis（事件总线）、会话 JSONL 基础设施 | `core/event_bus.py`, `core/memory.py` |
+| 1C | TaskPlan JSON 文件持久化 | `data/agents/dev_bot/workspace/task_plans/` |
 | 2 | ChromaDB 向量库初始化 + 文档写入 | `tools/knowledge_base.py` |
 | 3 | 客服会话持久化（多客户隔离） | `data/agents/cs_bot/sessions/` |
 | 4 | 文章发布记录 + Cookie 存储 | `data/agents/marketing_bot/workspace/` |
@@ -225,6 +227,7 @@ class ToolCall:
 |-------|------------|---------|
 | 1A | `platform.yaml` 基础结构 | `config/platform.yaml` |
 | 1B | `dispatch.routes` 新增 GitHub Webhook 路由、`dev.yaml`、`session_rotation` 配置 | `config/` |
+| 1C | `task_planning` 配置节（超时、子任务数上限、敏感文件模式） | `config/platform.yaml` |
 | 2 | `knowledge_base.yaml`、知识库 sources 配置 | `config/agents/` |
 | 3 | `customer_service.yaml`、Telegram 渠道配置 | `config/agents/` |
 | 4 | `marketing.yaml`、调度 cron 配置 | `config/agents/` |
@@ -235,6 +238,7 @@ class ToolCall:
 |-------|---------------------|---------|
 | 1A | `mock_config`, `tmp_data_dir`, `event_loop` | `tests/conftest.py` |
 | 1B | `mock_github_webhook`, `mock_claude_cli`, `mock_claude_sdk`, `mock_session_rotator` | `tests/conftest.py` |
+| 1C | `mock_task_planner`, `mock_task_executor`, `sample_task_plan`, `sample_subtasks` | `tests/conftest.py` |
 | 2 | `mock_chromadb`, `mock_git_repo` | `tests/conftest.py` |
 | 3 | `mock_telegram`, `mock_knowledge_base` | `tests/conftest.py` |
 | 4 | `mock_playwright`, `mock_scheduler` | `tests/conftest.py` |
@@ -245,6 +249,7 @@ class ToolCall:
 |-------|------------|---------|
 | 1A | `PlatformError`, `ToolError`, `ChannelError`, `PermissionDeniedError`, `RateLimitError`, `ValidationError` | `core/errors.py` |
 | 1B | `WebhookVerificationError`, `SessionRotationError` | `core/errors.py` |
+| 1C | `TaskPlanError`, `TaskExecutionError`, `SubtaskTimeoutError`, `DirtyGitStateError`, `SensitiveFileError`, `CyclicDependencyError` | `core/errors.py` |
 | 2 | `KnowledgeBaseError`（索引失败、查询超时） | `core/errors.py` |
 | 3 | `EscalationError`（升级通知失败）、`SessionError` | `core/errors.py` |
 | 4 | `BrowserError`（页面加载失败）、`CookieExpiredError` | `core/errors.py` |
@@ -387,6 +392,25 @@ platforms:
 | DV-15 | 复杂度自适应执行策略：简单 Issue 单次调用、中等 Issue 轻量分解、复杂 Issue 完整分解 + 轮换 | P0 |
 | DV-16 | Session 轮换：任务分解 + 结果检测自动续接（进度摘要 → 续接 prompt → 新 session 继续） | P1 |
 | DV-17 | CUI /clear 命令支持：前端拦截 → 后端终止当前 CLI 子进程 → 启动新 session | P1 |
+
+**需求驱动开发（Phase 1C — 大需求分解 + 多任务独立执行，解决上下文膨胀问题）**:
+
+> **Mode C 是 Mode A 的自动化升级**。当需求较复杂、单次 Claude Code 会话无法完成时，Owner 在 cui 中描述需求 → 系统交互澄清 → LLM 自动分解为独立子任务 → 每个子任务在全新 Claude CLI 上下文中独立执行 → 逐个验证 → 统一创建 PR。Mode B（Issue 自动化）和 Mode C（需求驱动开发）可共存，分别处理不��场景。
+
+| # | 功能 | 优先级 |
+|---|------|--------|
+| DV-18 | 需求澄清对话：Owner 在 cui 中描述需求，Claude Code 交互澄清需求边界 | P0 |
+| DV-19 | LLM 任务分解：将澄清后的需求自动分解为 N 个独立子任务（含依赖关系） | P0 |
+| DV-20 | 任务计划审批：Owner 在 cui 中审查/调整/确认子任务列表 | P0 |
+| DV-21 | 多任务串行执行：按拓扑序逐个调用 Claude CLI（每个子任务=全新上下文） | P0 |
+| DV-22 | 上下文传递：前序任务的结果摘要注入后续任务的 prompt | P0 |
+| DV-23 | Git Checkpoint：每个子任务完成后自动 commit，支持回滚到任意 checkpoint | P0 |
+| DV-24 | 失败处理：子任务失败自动暂停，支持重试/重试+反馈/跳过/终止 | P0 |
+| DV-25 | 敏感文件保护：子任务修改 .env 等敏感文件时自动回滚并通知 | P0 |
+| DV-26 | 执行进度通知：ntfy 推送关键事件（开始、完成、失败），cui 展示实时进度 | P1 |
+| DV-27 | 紧急停止：Owner 可随时终止执行，保留已完成的 checkpoints | P1 |
+| DV-28 | 连续失败保护：连续 2 个子任务失败自动终止计划 | P1 |
+| DV-29 | 需求开发 REST API：供 cui 前端调用的管理端点 | P0 |
 
 **工具权限**（Phase 1B 自动化流程使用）:
 - ✅ `claude_code_cli` — 核心执行引擎（子进程调用）

@@ -10,9 +10,9 @@
 
 | 项目 | 状态 |
 |------|------|
-| **当前 Phase** | Phase 1B: GitHub Issue 自动化 ✅ |
-| **当前任务** | — (Phase 1B 完成) |
-| **工作分支** | `feat/phase-1b-issue-automation` |
+| **当前 Phase** | Phase 1C: 需求驱动开发工作流 🔄 |
+| **当前任务** | Task 1C.1 — 数据结构与持久化 |
+| **工作分支** | `feat/phase-1c-requirement-workflow` |
 | **总测试数** | 247 |
 | **最新 Tag** | `v0.2.0` |
 | **阻塞项** | 无 |
@@ -31,7 +31,7 @@
 
 ## Phase 顺序说明
 
-> **战略逻辑**：先建基础设施（Phase 1A 平台骨架 + cui）→ 再造工具（Phase 1B 开发机器人）→ 造弹药（知识库机器人）→ 用弹药服务客户（客服机器人）→ 有产品了才推广（营销机器人）
+> **战略逻辑**：先建基础设施（Phase 1A 平台骨架 + cui）→ 再造工具（Phase 1B 开发机器人 Issue 自动化 → Phase 1C 需求驱动开发）→ 造弹药（知识库机器人）→ 用弹药服务客户（客服机器人）→ 有产品了才推广（营销机器人）
 
 ---
 
@@ -41,6 +41,7 @@
 |-------|------|------|------|---------|
 | Phase 1A | 平台基础设施 + cui Web UI 部署 | ✅ 完成 | 28/28 | [phase-1a.md](phases/phase-1a.md) |
 | Phase 1B | 开发机器人 — GitHub Issue 自动化 | ✅ 完成 | 15/15 | [phase-1b.md](phases/phase-1b.md) |
+| Phase 1C | 开发机器人 — 需求驱动开发工作流 | 🔄 进行中 | 0/12 | [phase-1c.md](phases/phase-1c.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |
