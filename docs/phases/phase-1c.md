@@ -429,7 +429,7 @@ uv run pytest tests/unit/test_task_executor.py -v
 
 ### Task 1C.4: 实现 core/task_executor.py — 失败处理与控制机制
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1C.3
 **产出文件**: `core/task_executor.py` 扩展
 
@@ -502,7 +502,7 @@ uv run pytest tests/unit/test_task_executor.py -v -k "test_failure"
 
 ### Task 1C.5: 敏感文件保护与变更检测
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成 (Completed early in Task 1C.3)
 **依赖**: Task 1C.3
 **产出文件**: `core/task_executor.py` 扩展
 

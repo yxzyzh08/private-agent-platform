@@ -58,10 +58,102 @@ class TaskExecutor:
         self._store = store or TaskPlanStore()
         self._stop_requested = False
         self._consecutive_failures = 0
+        self._current_process: asyncio.subprocess.Process | None = None
 
     def request_stop(self) -> None:
         """Request graceful stop of the current execution."""
         self._stop_requested = True
+
+    async def retry_subtask(self, plan: TaskPlan, task_id: str) -> TaskPlan:
+        """Retry a failed subtask by resetting to pending and re-executing."""
+        task = self._find_task(plan, task_id)
+        if task.status != "failed":
+            raise TaskExecutionError(
+                f"Task {task_id} is '{task.status}', only 'failed' tasks can be retried"
+            )
+        task.transition_to("pending")
+        if plan.status in ("paused", "failed"):
+            plan.transition_to("executing")
+        self._consecutive_failures = 0
+        self._store.save(plan)
+        return await self.execute_plan(plan)
+
+    async def retry_subtask_with_feedback(
+        self, plan: TaskPlan, task_id: str, feedback: str
+    ) -> TaskPlan:
+        """Retry a failed subtask with additional feedback appended to description."""
+        task = self._find_task(plan, task_id)
+        task.description += f"\n\n## Owner 反馈\n{feedback}"
+        return await self.retry_subtask(plan, task_id)
+
+    async def skip_subtask(self, plan: TaskPlan, task_id: str) -> tuple[TaskPlan, list[str]]:
+        """Skip a subtask. Returns (plan, warning_list) where warnings list dependent tasks."""
+        task = self._find_task(plan, task_id)
+        if task.status not in ("failed", "pending"):
+            raise TaskExecutionError(
+                f"Task {task_id} is '{task.status}', cannot skip"
+            )
+        if task.status == "failed":
+            task.transition_to("pending")
+        # Find dependents that will be affected
+        dependents = [
+            t.task_id for t in plan.tasks
+            if task_id in t.depends_on and t.status == "pending"
+        ]
+        task.transition_to("in_progress")
+        task.transition_to("failed")
+        task.transition_to("skipped")
+        self._store.save(plan)
+        await self._notify(
+            f"Task {task_id} skipped by owner."
+            + (f" Warning: {dependents} depend on it." if dependents else ""),
+            title="Task Skipped",
+        )
+        return plan, dependents
+
+    async def abort_plan(self, plan: TaskPlan) -> TaskPlan:
+        """Abort the entire plan. Kills current process if running."""
+        await self._kill_current_process()
+        plan.transition_to("aborted")
+        self._store.save(plan)
+        await self._notify(
+            f"Plan {plan.plan_id} aborted. {plan.completed_count}/{plan.total_count} completed.",
+            title="Plan Aborted",
+            priority="high",
+        )
+        return plan
+
+    async def stop_current(self) -> None:
+        """Emergency stop: kill current CLI process group immediately."""
+        self._stop_requested = True
+        await self._kill_current_process()
+
+    def _find_task(self, plan: TaskPlan, task_id: str) -> SubTask:
+        """Find a task by ID, raise if not found."""
+        for task in plan.tasks:
+            if task.task_id == task_id:
+                return task
+        raise TaskExecutionError(f"Task {task_id} not found in plan")
+
+    async def _kill_current_process(self) -> None:
+        """Kill the currently running CLI process if any."""
+        proc = self._current_process
+        if proc is None:
+            return
+        try:
+            import os
+            import signal
+            pgid = os.getpgid(proc.pid)
+            os.killpg(pgid, signal.SIGTERM)
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                os.killpg(pgid, signal.SIGKILL)
+                await proc.wait()
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            logger.warning("Permission denied killing process group for pid %d", proc.pid)
 
     async def execute_plan(self, plan: TaskPlan) -> TaskPlan:
         """Execute all pending subtasks in topological order.

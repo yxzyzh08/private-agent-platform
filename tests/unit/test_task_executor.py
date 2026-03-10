@@ -422,3 +422,161 @@ class TestPlanPersistence:
         # Read the phase file and verify [x]
         content = (tmp_path / "test-phase.md").read_text()
         assert "[x]" in content
+
+
+# --- Failure handling & control tests (Task 1C.4) ---
+
+
+class TestRetrySubtask:
+    async def test_retry_failed_task(self, tmp_path, executor_deps):
+        """Retry resets status to pending and re-executes."""
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+        plan.tasks[0].status = "in_progress"
+        plan.tasks[0].transition_to("failed")
+
+        with patch("core.task_executor._run_git", side_effect=_mock_git_clean):
+            result = await executor.retry_subtask(plan, "T.1")
+
+        assert result.tasks[0].status == "completed"
+
+    async def test_retry_non_failed_task_raises(self, tmp_path, executor_deps):
+        """Retrying a non-failed task raises error."""
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+
+        with pytest.raises(TaskExecutionError, match="only 'failed'"):
+            await executor.retry_subtask(plan, "T.1")
+
+    async def test_retry_with_feedback_appends_description(self, tmp_path, executor_deps):
+        """Feedback is appended to task description."""
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+        plan.tasks[0].status = "in_progress"
+        plan.tasks[0].transition_to("failed")
+
+        with patch("core.task_executor._run_git", side_effect=_mock_git_clean):
+            result = await executor.retry_subtask_with_feedback(
+                plan, "T.1", "请使用 asyncio 而不是 threading"
+            )
+
+        assert "请使用 asyncio" in result.tasks[0].description
+        assert result.tasks[0].status == "completed"
+
+    async def test_retry_resets_consecutive_failures(self, tmp_path, executor_deps):
+        """Retry resets the consecutive failure counter."""
+        executor = _make_executor(executor_deps)
+        executor._consecutive_failures = 1
+        plan = _make_plan(tmp_path)
+        plan.tasks[0].status = "in_progress"
+        plan.tasks[0].transition_to("failed")
+        plan.transition_to("paused")
+
+        with patch("core.task_executor._run_git", side_effect=_mock_git_clean):
+            await executor.retry_subtask(plan, "T.1")
+
+        assert executor._consecutive_failures == 0
+
+
+class TestSkipSubtask:
+    async def test_skip_failed_task(self, tmp_path, executor_deps):
+        """Skip a failed task, marking it as skipped."""
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+        plan.tasks[0].status = "in_progress"
+        plan.tasks[0].transition_to("failed")
+
+        result, dependents = await executor.skip_subtask(plan, "T.1")
+
+        assert result.tasks[0].status == "skipped"
+        # T.2 depends on T.1
+        assert "T.2" in dependents
+
+    async def test_skip_no_dependents(self, tmp_path, executor_deps):
+        """Skip a task with no dependents returns empty warning list."""
+        executor = _make_executor(executor_deps)
+        tasks = [
+            SubTask(task_id="A", title="A", description="D"),
+            SubTask(task_id="B", title="B", description="D"),
+        ]
+        plan = _make_plan(tmp_path, tasks=tasks)
+        plan.tasks[0].status = "in_progress"
+        plan.tasks[0].transition_to("failed")
+
+        _, dependents = await executor.skip_subtask(plan, "A")
+        assert dependents == []
+
+    async def test_skip_completed_task_raises(self, tmp_path, executor_deps):
+        """Cannot skip a completed task."""
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+        plan.tasks[0].status = "in_progress"
+        plan.tasks[0].transition_to("completed")
+
+        with pytest.raises(TaskExecutionError, match="cannot skip"):
+            await executor.skip_subtask(plan, "T.1")
+
+
+class TestAbortPlan:
+    async def test_abort_plan(self, tmp_path, executor_deps):
+        """Abort plan sets status to aborted and notifies."""
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+
+        result = await executor.abort_plan(plan)
+
+        assert result.status == "aborted"
+        executor_deps["notifier"].send.assert_called_once()
+        call_kwargs = executor_deps["notifier"].send.call_args[1]
+        assert call_kwargs["priority"] == "high"
+
+    async def test_abort_preserves_completed_tasks(self, tmp_path, executor_deps):
+        """Abort preserves already completed task states."""
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+        plan.tasks[0].status = "in_progress"
+        plan.tasks[0].transition_to("completed")
+        plan.tasks[0].checkpoint_sha = "abc123"
+
+        result = await executor.abort_plan(plan)
+
+        assert result.tasks[0].status == "completed"
+        assert result.tasks[0].checkpoint_sha == "abc123"
+
+
+class TestStopCurrent:
+    async def test_stop_current_sets_flag(self, tmp_path, executor_deps):
+        """stop_current sets the stop flag."""
+        executor = _make_executor(executor_deps)
+
+        await executor.stop_current()
+
+        assert executor._stop_requested is True
+
+    async def test_stop_current_kills_process(self, tmp_path, executor_deps):
+        """stop_current kills the current process group."""
+        executor = _make_executor(executor_deps)
+        mock_proc = AsyncMock()
+        mock_proc.pid = 99999
+        mock_proc.wait = AsyncMock()
+        executor._current_process = mock_proc
+
+        with patch("os.getpgid", return_value=99999), \
+             patch("os.killpg") as mock_killpg:
+            await executor.stop_current()
+
+        mock_killpg.assert_called_once_with(99999, __import__("signal").SIGTERM)
+
+
+class TestFindTask:
+    def test_find_existing_task(self, tmp_path, executor_deps):
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+        task = executor._find_task(plan, "T.1")
+        assert task.task_id == "T.1"
+
+    def test_find_nonexistent_task_raises(self, tmp_path, executor_deps):
+        executor = _make_executor(executor_deps)
+        plan = _make_plan(tmp_path)
+        with pytest.raises(TaskExecutionError, match="not found"):
+            executor._find_task(plan, "T.99")
