@@ -617,3 +617,140 @@ class TestBugReportToIssue:
 
         await agent.on_event(event)
         mock_git.execute.assert_called_once()
+
+
+# --- Phase 1C: execute_from_phase tests ---
+
+
+class TestExecuteFromPhase:
+    """Tests for DevAgent Phase 1C methods."""
+
+    def _make_config(self, tmp_path):
+        """Create a minimal agent config file."""
+        config = {
+            "name": "dev_bot",
+            "llm": {"model": "test", "max_tokens": 100},
+            "allowed_tools": ["claude_code_cli"],
+        }
+        config_file = tmp_path / "dev_bot.yaml"
+        config_file.write_text(yaml.dump(config))
+        return str(config_file)
+
+    def _make_phase_file(self, tmp_path, completed_first=False):
+        """Create a minimal phase file."""
+        status1 = "[x]" if completed_first else "[ ]"
+        pf = tmp_path / "phase-test.md"
+        pf.write_text(f"""\
+### Task T.1: First task
+
+**状态**: {status1} {"完成" if completed_first else "未开始"}
+**依赖**: 无
+
+**描述**: Do the first thing
+
+**产出文件**: `src/first.py`
+
+### Task T.2: Second task
+
+**状态**: [ ] 未开始
+**依赖**: Task T.1
+
+**描述**: Do the second thing
+""")
+        return str(pf)
+
+    def _patch_store(self, tmp_path):
+        """Patch TaskPlanStore to use tmp_path."""
+        return patch(
+            "core.task_planner.TaskPlanStore",
+            return_value=MagicMock(save=MagicMock(), load=MagicMock(return_value=None)),
+        )
+
+    async def test_execute_from_phase_parses_and_executes(self, tmp_path):
+        """execute_from_phase parses md, creates plan, calls executor."""
+        config_path = self._make_config(tmp_path)
+        phase_file = self._make_phase_file(tmp_path)
+        notifier = AsyncMock()
+        notifier.send = AsyncMock(return_value=True)
+
+        agent = DevAgent(config_path=config_path, notifier=notifier)
+
+        mock_executor = AsyncMock()
+        mock_plan = MagicMock()
+        mock_plan.status = "completed"
+        mock_executor.execute_plan = AsyncMock(return_value=mock_plan)
+
+        with patch("core.task_executor.TaskExecutor", return_value=mock_executor), \
+             self._patch_store(tmp_path):
+            result = await agent.execute_from_phase(phase_file, str(tmp_path))
+
+        assert result is not None
+        mock_executor.execute_plan.assert_called_once()
+
+    async def test_execute_from_phase_skips_completed(self, tmp_path):
+        """Completed tasks [x] are filtered out."""
+        config_path = self._make_config(tmp_path)
+        phase_file = self._make_phase_file(tmp_path, completed_first=True)
+        notifier = AsyncMock()
+        notifier.send = AsyncMock(return_value=True)
+
+        agent = DevAgent(config_path=config_path, notifier=notifier)
+
+        mock_executor = AsyncMock()
+        mock_plan = MagicMock()
+        mock_plan.status = "completed"
+        mock_executor.execute_plan = AsyncMock(return_value=mock_plan)
+
+        with patch("core.task_executor.TaskExecutor", return_value=mock_executor), \
+             self._patch_store(tmp_path):
+            result = await agent.execute_from_phase(phase_file, str(tmp_path))
+
+        # Plan should only have T.2 (T.1 is completed)
+        assert result is not None
+
+    async def test_execute_from_phase_no_pending(self, tmp_path):
+        """Returns None when all tasks are completed."""
+        config_path = self._make_config(tmp_path)
+        pf = tmp_path / "phase-done.md"
+        pf.write_text("""\
+### Task T.1: Done
+
+**状态**: [x] 完成
+**依赖**: 无
+""")
+        notifier = AsyncMock()
+        notifier.send = AsyncMock(return_value=True)
+
+        agent = DevAgent(config_path=config_path, notifier=notifier)
+        result = await agent.execute_from_phase(str(pf), str(tmp_path))
+
+        assert result is None
+
+    async def test_get_plan_status(self, tmp_path):
+        """get_plan_status loads from store."""
+        config_path = self._make_config(tmp_path)
+        agent = DevAgent(config_path=config_path)
+
+        with patch("core.task_planner.TaskPlanStore") as MockStore:
+            MockStore.return_value.load.return_value = MagicMock(status="executing")
+            result = await agent.get_plan_status("plan-123")
+
+        assert result.status == "executing"
+
+    async def test_phase_1b_methods_unchanged(self, tmp_path):
+        """Phase 1B methods still exist with correct signatures."""
+        config_path = self._make_config(tmp_path)
+        agent = DevAgent(config_path=config_path)
+
+        # Phase 1B methods
+        assert hasattr(agent, "handle_issue")
+        assert hasattr(agent, "execute_issue")
+        assert hasattr(agent, "confirm_issue")
+        assert hasattr(agent, "reject_issue")
+        assert hasattr(agent, "check_timeouts")
+        # Phase 1C methods
+        assert hasattr(agent, "execute_from_phase")
+        assert hasattr(agent, "get_plan_status")
+        assert hasattr(agent, "retry_task")
+        assert hasattr(agent, "skip_task")
+        assert hasattr(agent, "abort_plan")

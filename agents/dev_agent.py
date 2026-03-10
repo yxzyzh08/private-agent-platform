@@ -1,17 +1,27 @@
-"""Development bot agent — handles GitHub Issue automation.
+"""Development bot agent — GitHub Issue automation + requirement-driven development.
 
-Receives Issue events from the GitHub Webhook channel, analyzes them via LLM,
-notifies the Owner through ntfy, and orchestrates code fixes via Claude Code.
+Mode B (Phase 1B): Issue events → LLM analysis → Owner confirmation → Claude Code fix
+Mode C (Phase 1C): phase-N.md → PhaseFileParser → TaskPlan → serial execution
 """
 
 from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from typing import Any
 
 from agents.base_agent import BaseAgent
+from agents.pending_issue_store import (  # noqa: F401
+    CONFIRMATION_TIMEOUT_SECONDS,
+    PendingIssueStore,
+    STATUS_APPROVED,
+    STATUS_COMPLETED,
+    STATUS_EXECUTING,
+    STATUS_FAILED,
+    STATUS_PENDING,
+    STATUS_REJECTED,
+    STATUS_TIMEOUT,
+)
 from channels.base import Message
 from core.agent_runtime import AgentResponse
 from core.config import get_config
@@ -34,18 +44,6 @@ Issue Body:
 {body}
 
 Respond ONLY with a valid JSON object, no markdown fencing."""
-
-# Issue status constants
-STATUS_PENDING = "pending_confirmation"
-STATUS_APPROVED = "approved"
-STATUS_REJECTED = "rejected"
-STATUS_TIMEOUT = "timeout"
-STATUS_EXECUTING = "executing"
-STATUS_COMPLETED = "completed"
-STATUS_FAILED = "failed"
-
-# Default confirmation timeout: 24 hours
-CONFIRMATION_TIMEOUT_SECONDS = 24 * 60 * 60
 
 # Prompt for Claude Code to fix an issue
 ISSUE_EXECUTION_PROMPT = """Fix the following GitHub Issue.
@@ -75,80 +73,8 @@ _COMPLEXITY_MAX_TURNS = {
 }
 
 
-class PendingIssueStore:
-    """Persists pending issue state to a JSON file.
-
-    Stores issues awaiting Owner confirmation with their analysis results.
-    """
-
-    def __init__(self, store_path: str | None = None) -> None:
-        self._path = Path(store_path or "data/agents/dev_bot/workspace/pending_issues.json")
-
-    def _ensure_dir(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-
-    def load(self) -> dict[str, dict]:
-        """Load all pending issues from disk."""
-        if not self._path.exists():
-            return {}
-        try:
-            return json.loads(self._path.read_text())
-        except (json.JSONDecodeError, OSError):
-            logger.warning("Failed to load pending issues from %s", self._path)
-            return {}
-
-    def save(self, data: dict[str, dict]) -> None:
-        """Save all pending issues to disk."""
-        self._ensure_dir()
-        self._path.write_text(json.dumps(data, indent=2, default=str))
-
-    def add(self, issue_key: str, issue_data: dict) -> None:
-        """Add or update a pending issue."""
-        data = self.load()
-        data[issue_key] = issue_data
-        self.save(data)
-
-    def get(self, issue_key: str) -> dict | None:
-        """Get a pending issue by key."""
-        return self.load().get(issue_key)
-
-    def remove(self, issue_key: str) -> None:
-        """Remove a pending issue."""
-        data = self.load()
-        data.pop(issue_key, None)
-        self.save(data)
-
-    def update_status(self, issue_key: str, status: str) -> None:
-        """Update the status of a pending issue."""
-        data = self.load()
-        if issue_key in data:
-            data[issue_key]["status"] = status
-            self.save(data)
-
-    def get_timed_out(self, timeout_seconds: int = CONFIRMATION_TIMEOUT_SECONDS) -> list[str]:
-        """Get keys of issues that have exceeded the confirmation timeout."""
-        data = self.load()
-        now = time.time()
-        timed_out = []
-        for key, info in data.items():
-            if info.get("status") == STATUS_PENDING:
-                created = info.get("created_at", 0)
-                if now - created > timeout_seconds:
-                    timed_out.append(key)
-        return timed_out
-
-
 class DevAgent(BaseAgent):
-    """Development bot — GitHub Issue analysis and automation.
-
-    Workflow:
-      1. Receive Issue event from GitHub Webhook channel
-      2. Analyze Issue type (Bug/Feature/Refactor) via LLM
-      3. Notify Owner via ntfy with analysis results
-      4. Wait for Owner confirmation (via cui Web UI)
-      5. Execute fix via Claude Code CLI/SDK
-      6. Create PR and comment on Issue
-    """
+    """Development bot — GitHub Issue automation (1B) + requirement-driven dev (1C)."""
 
     def __init__(
         self,
@@ -193,19 +119,7 @@ class DevAgent(BaseAgent):
         )
 
     async def handle_issue(self, message: Message) -> AgentResponse:
-        """Analyze a newly opened GitHub Issue and notify Owner.
-
-        Steps:
-          1. Analyze via LLM
-          2. Send ntfy notification
-          3. Persist pending state for Owner confirmation
-
-        Args:
-            message: Message containing issue details in metadata.
-
-        Returns:
-            AgentResponse with the analysis result.
-        """
+        """Analyze a newly opened GitHub Issue, notify Owner, persist pending state."""
         title = message.metadata.get("issue_title", "")
         body = message.metadata.get("issue_body", "")
         issue_number = message.metadata.get("issue_number", "?")
@@ -243,14 +157,7 @@ class DevAgent(BaseAgent):
         return response
 
     async def confirm_issue(self, issue_key: str) -> bool:
-        """Owner confirms execution for a pending issue.
-
-        Args:
-            issue_key: Issue identifier (e.g., "owner/repo#42").
-
-        Returns:
-            True if confirmation was accepted, False if issue not found.
-        """
+        """Owner confirms execution for a pending issue."""
         issue = self._pending_store.get(issue_key)
         if not issue or issue.get("status") != STATUS_PENDING:
             logger.warning("Cannot confirm issue %s: not found or not pending", issue_key)
@@ -261,14 +168,7 @@ class DevAgent(BaseAgent):
         return True
 
     async def reject_issue(self, issue_key: str) -> bool:
-        """Owner rejects execution for a pending issue.
-
-        Args:
-            issue_key: Issue identifier (e.g., "owner/repo#42").
-
-        Returns:
-            True if rejection was accepted, False if issue not found.
-        """
+        """Owner rejects execution for a pending issue."""
         issue = self._pending_store.get(issue_key)
         if not issue or issue.get("status") != STATUS_PENDING:
             logger.warning("Cannot reject issue %s: not found or not pending", issue_key)
@@ -279,11 +179,7 @@ class DevAgent(BaseAgent):
         return True
 
     async def check_timeouts(self) -> list[str]:
-        """Check for and handle timed-out pending issues.
-
-        Returns:
-            List of issue keys that were timed out.
-        """
+        """Check for and handle timed-out pending issues."""
         timed_out = self._pending_store.get_timed_out()
         for key in timed_out:
             self._pending_store.update_status(key, STATUS_TIMEOUT)
@@ -291,22 +187,14 @@ class DevAgent(BaseAgent):
         return timed_out
 
     async def _notify_owner(
-        self,
-        issue_number: Any,
-        title: str,
-        repo: str,
-        analysis: str,
-        issue_url: str,
+        self, issue_number: Any, title: str, repo: str, analysis: str, issue_url: str,
     ) -> None:
         """Send ntfy notification to Owner with Issue analysis."""
-        ntfy_msg = (
-            f"Issue #{issue_number}: {title}\n"
-            f"Repo: {repo}\n\n"
-            f"Analysis:\n{analysis}\n\n"
-            f"Please confirm or reject in the Web UI."
-        )
         await self._notifier.send(
-            message=ntfy_msg,
+            message=(
+                f"Issue #{issue_number}: {title}\nRepo: {repo}\n\n"
+                f"Analysis:\n{analysis}\n\nPlease confirm or reject in the Web UI."
+            ),
             title=f"[DevBot] Issue #{issue_number} needs review",
             priority="high",
             tags=["robot", "github"],
@@ -314,17 +202,7 @@ class DevAgent(BaseAgent):
         )
 
     async def execute_issue(self, issue_key: str) -> AgentResponse:
-        """Execute a code fix for an approved issue.
-
-        Uses claude_code_cli or claude_code_sdk based on ``cli.backend`` config.
-        After execution, creates a PR via git_tool and updates the issue store.
-
-        Args:
-            issue_key: Issue identifier (e.g., "owner/repo#42").
-
-        Returns:
-            AgentResponse with execution result.
-        """
+        """Execute a code fix for an approved issue via Claude Code CLI/SDK."""
         issue = self._pending_store.get(issue_key)
         if not issue or issue.get("status") != STATUS_APPROVED:
             logger.warning("Cannot execute issue %s: not approved", issue_key)
@@ -460,6 +338,110 @@ class DevAgent(BaseAgent):
         except (json.JSONDecodeError, TypeError):
             return "simple"
 
+    # --- Phase 1C: Requirement-driven development ---
+
+    async def execute_from_phase(
+        self, phase_file: str, repo_path: str, source: str = "cui",
+    ) -> Any:
+        """Parse phase-N.md, create TaskPlan, and execute all pending tasks."""
+        from core.phase_parser import parse_phase_file_safe, phase_tasks_to_subtasks
+        from core.task_executor import TaskExecutor
+        from core.task_planner import TaskPlan, TaskPlanStore
+
+        logger.info("execute_from_phase: parsing %s", phase_file)
+
+        # Parse markdown → filter pending → convert to SubTasks
+        phase_tasks, warnings = parse_phase_file_safe(phase_file)
+        if warnings:
+            logger.warning("Phase file parse warnings: %s", warnings)
+        pending = [t for t in phase_tasks if t.status != "x"]
+        if not pending:
+            logger.info("No pending tasks in %s", phase_file)
+            await self._notifier.send(
+                message=f"No pending tasks in {phase_file}",
+                title="[DevBot] No tasks to execute",
+            )
+            return None
+
+        subtasks = phase_tasks_to_subtasks(pending)
+        plan = TaskPlan(
+            phase_file=phase_file,
+            repo_path=repo_path,
+            source=source,
+            tasks=subtasks,
+        )
+
+        config = get_config()
+        task_config = config.get("task_planning", {})
+        store = TaskPlanStore()
+        executor = TaskExecutor(
+            tool_registry=self.tool_registry,
+            notifier=self._notifier,
+            config=task_config,
+            store=store,
+        )
+
+        store.save(plan)
+        await self._notifier.send(
+            message=f"Starting {len(subtasks)} tasks from {phase_file}",
+            title="[DevBot] Plan started",
+            tags=["rocket"],
+        )
+
+        result = await executor.execute_plan(plan)
+        return result
+
+    async def get_plan_status(self, plan_id: str) -> Any:
+        """Query execution progress for a plan."""
+        from core.task_planner import TaskPlanStore
+        return TaskPlanStore().load(plan_id)
+
+    def _load_plan_and_executor(self, plan_id: str) -> tuple[Any, Any, Any] | None:
+        """Load a plan and create an executor for it. Returns (plan, executor, store) or None."""
+        from core.task_executor import TaskExecutor
+        from core.task_planner import TaskPlanStore
+
+        store = TaskPlanStore()
+        plan = store.load(plan_id)
+        if plan is None:
+            logger.warning("Plan %s not found", plan_id)
+            return None
+        config = get_config()
+        executor = TaskExecutor(
+            tool_registry=self.tool_registry,
+            notifier=self._notifier,
+            config=config.get("task_planning", {}),
+            store=store,
+        )
+        return plan, executor, store
+
+    async def retry_task(self, plan_id: str, task_id: str, feedback: str = "") -> Any:
+        """Retry a failed subtask, optionally with Owner feedback."""
+        result = self._load_plan_and_executor(plan_id)
+        if result is None:
+            return None
+        plan, executor, _ = result
+        if feedback:
+            return await executor.retry_subtask_with_feedback(plan, task_id, feedback)
+        return await executor.retry_subtask(plan, task_id)
+
+    async def skip_task(self, plan_id: str, task_id: str) -> Any:
+        """Skip a subtask."""
+        result = self._load_plan_and_executor(plan_id)
+        if result is None:
+            return None
+        plan, executor, _ = result
+        plan_result, warnings = await executor.skip_subtask(plan, task_id)
+        return {"plan": plan_result, "warnings": warnings}
+
+    async def abort_plan(self, plan_id: str) -> Any:
+        """Abort an executing plan."""
+        result = self._load_plan_and_executor(plan_id)
+        if result is None:
+            return None
+        plan, executor, _ = result
+        return await executor.abort_plan(plan)
+
     async def on_event(self, event: Any) -> None:
         """Handle platform events (e.g., bug_report from customer service bot).
 
@@ -471,14 +453,7 @@ class DevAgent(BaseAgent):
             await self._create_issue_from_bug_report(event)
 
     async def _create_issue_from_bug_report(self, event: Any) -> AgentResponse | None:
-        """Create a GitHub Issue from a bug_report event and trigger analysis.
-
-        Args:
-            event: Event with payload containing title, body, and optionally repo.
-
-        Returns:
-            AgentResponse from handle_issue, or None if issue creation fails.
-        """
+        """Create a GitHub Issue from a bug_report event and trigger analysis."""
         payload = getattr(event, "payload", {}) or {}
         title = payload.get("title", "Bug Report")
         body = payload.get("body", "")
