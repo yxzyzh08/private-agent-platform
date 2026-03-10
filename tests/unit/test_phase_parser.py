@@ -315,3 +315,40 @@ uv run pytest tests/unit/test_knowledge_base.py -v
         assert tasks[0].validation_command == "uv run pytest tests/unit/test_doc_extractor.py -v"
         assert tasks[1].task_id == "2.2"
         assert tasks[1].depends_on == ["2.1"]
+
+
+class TestParseTemplate:
+    def test_parse_template_filled(self, tmp_path):
+        """Template with placeholders filled can be parsed correctly."""
+        template = Path("config/templates/phase-template.md").read_text()
+        filled = (
+            template
+            .replace("{PHASE_TITLE}", "测试功能")
+            .replace("{BRANCH_NAME}", "test-feature")
+            .replace("{PREREQUISITES}", "Phase 1完成")
+            .replace("{OBJECTIVE}", "实现测试功能")
+            .replace("{GROUP_TITLE}", "核心功能")
+            .replace("{N.1}", "3.1")
+            .replace("{TASK_TITLE}", "创建模块")
+            .replace("{OUTPUT_FILE_1}", "src/module.py")
+            .replace("{OUTPUT_FILE_2}", "tests/test_module.py")
+            .replace("{DESCRIPTION}", "创建核心模块")
+            .replace("{ACCEPTANCE_CRITERION_1}", "模块可导入")
+            .replace("{ACCEPTANCE_CRITERION_2}", "测试通过")
+            .replace("{TEST_COMMAND}", "uv run pytest tests/test_module.py -v")
+            .replace("{N.2}", "3.2")
+            .replace("{TASK_TITLE_2}", "集成测试")
+            .replace("{OUTPUT_FILE_3}", "tests/integration/test_int.py")
+            .replace("{DESCRIPTION_2}", "编写集成测试")
+            .replace("{ACCEPTANCE_CRITERION_3}", "集成测试通过")
+            .replace("{TEST_COMMAND_2}", "uv run pytest tests/integration/ -v")
+        )
+
+        tasks = parse_phase_file(filled)
+        assert len(tasks) == 2
+        assert tasks[0].task_id == "3.1"
+        assert tasks[0].title == "创建模块"
+        assert tasks[0].status == " "
+        assert "src/module.py" in tasks[0].output_files
+        assert tasks[1].task_id == "3.2"
+        assert tasks[1].depends_on == ["3.1"]

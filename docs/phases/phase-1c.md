@@ -665,7 +665,7 @@ uv run pytest tests/unit/test_requirement_api.py -v
 
 ### Task 1C.8: Phase 文件模板与 CLAUDE.md 扩展
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1C.2
 **产出文件**: `config/templates/phase-template.md`, `config/templates/claude-md-section.md`
 
