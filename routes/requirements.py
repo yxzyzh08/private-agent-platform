@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from core.logging import get_logger
+from core.logging import get_logger, set_trace_id
 
 logger = get_logger(__name__)
 
@@ -87,6 +87,7 @@ def _plan_to_response(plan) -> dict:
 @router.post("/from-phase")
 async def submit_from_phase(body: FromPhaseRequest, request: Request):
     """Parse phase-N.md and start execution."""
+    set_trace_id()
     phase_path = Path(body.phase_file)
     if not phase_path.exists():
         raise HTTPException(status_code=404, detail=f"Phase file not found: {body.phase_file}")

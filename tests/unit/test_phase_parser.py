@@ -260,9 +260,9 @@ class TestPhaseTaskToSubTask:
 # --- Template parsing ---
 
 
-class TestParseTemplate:
-    def test_parse_template_filled(self):
-        """A filled template can be parsed correctly."""
+class TestParseSamplePhaseFile:
+    def test_parse_sample_phase_file(self):
+        """A sample phase file can be parsed correctly."""
         md = """# Phase 2: Knowledge Base Bot
 
 **分支**: `feat/kb-bot`

@@ -875,7 +875,7 @@ uv run pytest tests/integration/test_requirement_flow.py -v
 
 ### Task 1C.12: L3 真实端到端验收
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1C.11
 **产出文件**: `tests/e2e/test_e2e_requirement.py`（脚本）, `tests/e2e/fixtures/test-phase.md`（测试用 phase 文件）
 
@@ -980,7 +980,7 @@ uv run python tests/e2e/test_e2e_requirement.py
 
 ### Task 1C.13: Phase 1C 基础设施适配
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1C.12
 **参考**: `docs/requirement.md` §3.5 横切面需求演进路线
 
@@ -1005,7 +1005,7 @@ uv run pytest tests/ -v  # 全量回归
 
 ### Task 1C.14: Post-Phase 文档同步 + Git Tag
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1C.13
 
 **验收标准**:
