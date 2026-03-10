@@ -20,6 +20,7 @@ from core.event_bus import EventBus
 from core.logging import get_logger, setup_logging
 from core.tool_registry import ToolRegistry
 from channels.github_webhook.channel import GitHubWebhookChannel
+from routes.requirements import router as requirements_router
 from tools.claude_code_cli import ClaudeCodeCliTool
 from tools.event_bus_tool import EventBusTool
 from tools.git_tool import GitTool
@@ -110,6 +111,9 @@ def create_app() -> FastAPI:
 
     # Register channel routes on the app
     github_channel.register_routes(app)
+
+    # Register Phase 1C requirement API routes
+    app.include_router(requirements_router)
 
     @app.get("/health")
     async def health_check():

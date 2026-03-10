@@ -616,7 +616,7 @@ uv run pytest tests/unit/test_agents/test_dev_bot.py -v -k "test_from_phase"
 
 ### Task 1C.7: 实现 API 端点 — 需求开发接口
 
-**状态**: [ ] 未开始
+**状态**: [x] 完成
 **依赖**: Task 1C.6
 **产出文件**: `main.py` 扩展
 
