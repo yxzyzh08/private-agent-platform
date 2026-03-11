@@ -611,6 +611,32 @@ export function createConversationRoutes(
     }
   }
 
+  // Batch archive sessions (must be before /:sessionId to avoid param capture)
+  router.post('/batch-archive', async (req: RequestWithRequestId, res, next) => {
+    const requestId = req.requestId;
+    const { sessionIds } = req.body as { sessionIds?: string[] };
+
+    logger.debug('Batch archive sessions request', { requestId, count: sessionIds?.length });
+
+    try {
+      if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'sessionIds array is required' });
+      }
+
+      const archivedCount = await sessionInfoService.batchArchiveSessions(sessionIds);
+
+      logger.info('Batch archive completed', { requestId, archivedCount });
+
+      res.json({ success: true, archivedCount });
+    } catch (error) {
+      logger.debug('Batch archive failed', {
+        requestId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      next(error);
+    }
+  });
+
   // Batch delete sessions (must be before /:sessionId to avoid param capture)
   router.delete('/batch', async (req: RequestWithRequestId, res, next) => {
     const requestId = req.requestId;

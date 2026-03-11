@@ -123,5 +123,40 @@ describe('SessionInfoService with SQLite', () => {
       expect(deletedCount).toBe(1);
     });
   });
+
+  // Phase 1F: batch archive tests
+  describe('batchArchiveSessions', () => {
+    it('should archive multiple sessions atomically', async () => {
+      await service.updateSessionInfo('a', { custom_name: 'A' });
+      await service.updateSessionInfo('b', { custom_name: 'B' });
+      await service.updateSessionInfo('c', { custom_name: 'C' });
+
+      const archivedCount = await service.batchArchiveSessions(['a', 'b']);
+      expect(archivedCount).toBe(2);
+
+      const all = await service.getAllSessionInfo();
+      expect(all['a'].archived).toBe(true);
+      expect(all['b'].archived).toBe(true);
+      expect(all['c'].archived).toBe(false);
+    });
+
+    it('should return 0 for non-existent sessions', async () => {
+      const archivedCount = await service.batchArchiveSessions(['nonexistent1', 'nonexistent2']);
+      expect(archivedCount).toBe(0);
+    });
+
+    it('should handle empty array', async () => {
+      const archivedCount = await service.batchArchiveSessions([]);
+      expect(archivedCount).toBe(0);
+    });
+
+    it('should not re-archive already archived sessions', async () => {
+      await service.updateSessionInfo('a', { custom_name: 'A', archived: true });
+      await service.updateSessionInfo('b', { custom_name: 'B' });
+
+      const archivedCount = await service.batchArchiveSessions(['a', 'b']);
+      expect(archivedCount).toBe(1); // only 'b' was newly archived
+    });
+  });
 });
 

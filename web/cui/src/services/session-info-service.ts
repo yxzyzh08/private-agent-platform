@@ -429,6 +429,32 @@ export class SessionInfoService {
     await this.updateSessionInfo(sessionId, { session_type: sessionType });
   }
 
+  async batchArchiveSessions(sessionIds: string[]): Promise<number> {
+    this.logger.info('Batch archiving sessions', { count: sessionIds.length });
+    try {
+      const transaction = this.db.transaction((ids: string[]) => {
+        let archived = 0;
+        const now = new Date().toISOString();
+        for (const id of ids) {
+          const result = this.db.prepare(
+            'UPDATE sessions SET archived = 1, updated_at = ? WHERE session_id = ? AND archived = 0'
+          ).run(now, id);
+          if (result.changes > 0) archived++;
+        }
+        if (archived > 0) {
+          this.setMetadataStmt.run({ key: 'last_updated', value: now });
+        }
+        return archived;
+      });
+      const archivedCount = transaction(sessionIds);
+      this.logger.info('Batch archive completed', { archivedCount });
+      return archivedCount;
+    } catch (error) {
+      this.logger.error('Failed to batch archive sessions', error);
+      throw new Error(`Failed to batch archive sessions: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   async batchDeleteSessions(sessionIds: string[]): Promise<number> {
     this.logger.info('Batch deleting sessions', { count: sessionIds.length });
     try {

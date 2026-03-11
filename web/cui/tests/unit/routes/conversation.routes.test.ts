@@ -225,6 +225,51 @@ describe('Conversation Routes - Unified Start/Resume Endpoint', () => {
     });
   });
 
+  describe('POST /api/conversations/batch-archive', () => {
+    beforeEach(() => {
+      sessionInfoService.batchArchiveSessions = vi.fn();
+    });
+
+    it('should batch archive sessions successfully', async () => {
+      sessionInfoService.batchArchiveSessions.mockResolvedValue(3);
+
+      const response = await request(app)
+        .post('/api/conversations/batch-archive')
+        .send({ sessionIds: ['s1', 's2', 's3'] });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, archivedCount: 3 });
+      expect(sessionInfoService.batchArchiveSessions).toHaveBeenCalledWith(['s1', 's2', 's3']);
+    });
+
+    it('should return 400 for missing sessionIds', async () => {
+      const response = await request(app)
+        .post('/api/conversations/batch-archive')
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should return 400 for empty sessionIds array', async () => {
+      const response = await request(app)
+        .post('/api/conversations/batch-archive')
+        .send({ sessionIds: [] });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should handle service errors', async () => {
+      sessionInfoService.batchArchiveSessions.mockRejectedValue(new Error('DB error'));
+
+      const response = await request(app)
+        .post('/api/conversations/batch-archive')
+        .send({ sessionIds: ['s1'] });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
   describe('DELETE /api/conversations/batch', () => {
     beforeEach(() => {
       sessionInfoService.batchDeleteSessions = vi.fn();

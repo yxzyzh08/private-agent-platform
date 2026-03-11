@@ -20,7 +20,7 @@ export function Home() {
     recentDirectories,
     getMostRecentWorkingDirectory 
   } = useConversations();
-  const [activeTab, setActiveTab] = useState<'tasks' | 'agents' | 'history' | 'archive'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'agents' | 'archive'>('tasks');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const conversationCountRef = useRef(conversations.length);
   const composerRef = useRef<ComposerRef>(null);
@@ -31,16 +31,14 @@ export function Home() {
   }, [conversations.length]);
 
   // Get filter parameters based on active tab
-  const getFiltersForTab = (tab: 'tasks' | 'agents' | 'history' | 'archive') => {
+  const getFiltersForTab = (tab: 'tasks' | 'agents' | 'archive') => {
     switch (tab) {
       case 'tasks':
-        return { archived: false, hasContinuation: false, sessionType: 'user' };
+        return { archived: false, sessionType: 'user' };
       case 'agents':
         return { archived: false, hasContinuation: false, sessionType: 'agent' };
-      case 'history':
-        return { hasContinuation: true };
       case 'archive':
-        return { archived: true, hasContinuation: false };
+        return { archived: true };
       default:
         return {};
     }

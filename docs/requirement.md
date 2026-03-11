@@ -1,7 +1,7 @@
 # 个人多智能体平台 — 需求文档
 
-**版本**: v0.10
-**日期**: 2026-03-10
+**版本**: v0.11
+**日期**: 2026-03-11
 **状态**: 已确认，开发中
 
 ---
@@ -1069,6 +1069,21 @@ private-agent-platform/
 | AC-1D.3 | SSE 实时推送 | PlanEventBroker fan-out + SSE 端点，多客户端订阅实时事件 |
 | AC-1D.4 | RequirementPanel | cui 侧边栏实时展示进度（进度条 + 任务卡片 + 操作按钮） |
 | AC-1D.5 | 全流程 E2E | 从项目创建到任务执行到进度展示的完整链路验证 |
+
+---
+
+### Phase 1F — CUI UI 优化
+
+**前置条件**：Phase 1E 完成
+
+**目标**: 优化 CUI 首页 Tab 结构，移除冗余 History 页签，为 Archive 增加批量删除，为 Tasks 增加批量归档
+
+| # | 验收用例 | 预期结果 |
+|---|---------|---------|
+| AC-1F.1 | 移除 History Tab | Tab 栏只显示 Tasks / Agents / Archive，原 continuation 会话在 Tasks 中正常显示 |
+| AC-1F.2 | Archive 批量删除 | Archive tab 支持 Select all + 批量删除，确认后永久删除选中的归档任务 |
+| AC-1F.3 | Tasks 批量归档 | Tasks tab 支持 Select all + 批量归档，选中任务一键归档到 Archive |
+| AC-1F.4 | 后端 API | `POST /api/conversations/batch-archive` 端点正常工作，事务保证原子性 |
 
 ---
 

@@ -212,6 +212,13 @@ class ApiService {
     });
   }
 
+  async batchArchiveSessions(sessionIds: string[]): Promise<{ success: boolean; archivedCount: number }> {
+    return this.apiCall('/api/conversations/batch-archive', {
+      method: 'POST',
+      body: JSON.stringify({ sessionIds }),
+    });
+  }
+
   async transcribeAudio(audioBase64: string, mimeType: string): Promise<{ text: string }> {
     return this.apiCall('/api/gemini/transcribe', {
       method: 'POST',

@@ -10,11 +10,11 @@
 
 | 项目 | 状态 |
 |------|------|
-| **当前 Phase** | Phase 1E: CUI Agents Tab ✅ |
+| **当前 Phase** | Phase 1F: CUI UI 优化 ✅ |
 | **当前任务** | 全部完成 |
-| **工作分支** | `feat/phase-1e-agents-tab` |
-| **总测试数** | 421 (Python) + 309 (TypeScript) |
-| **最新 Tag** | `v0.5.0` |
+| **工作分支** | `feat/phase-1f-cui-ui` |
+| **总测试数** | 421 (Python) + 317 (TypeScript) |
+| **最新 Tag** | `v0.6.0` |
 | **阻塞项** | 无 |
 
 ### Resume Instructions
@@ -44,6 +44,7 @@
 | Phase 1C | 开发机器人 — 需求驱动开发工作流 | ✅ 完成 | 14/14 | [phase-1c.md](phases/phase-1c.md) |
 | Phase 1D | 开发机器人 — cui 全流程集成 | ✅ 完成 | 13/13 | [phase-1d.md](phases/phase-1d.md) |
 | Phase 1E | CUI Agents Tab — 子代理会话分离 + 批量删除 | ✅ 完成 | 9/9 | [phase-1e.md](phases/phase-1e.md) |
+| Phase 1F | CUI UI 优化 — 移除 History Tab + 批量操作增强 | ✅ 完成 | 6/6 | [phase-1f.md](phases/phase-1f.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |
@@ -68,6 +69,7 @@
 | **Phase 1C 完成** | **346** | **346** | **Task 1C.14 文档同步 + Git Tag v0.3.0** |
 | **Phase 1D 完成** | **421+294** | **421+294** | **Task 1D.13 文档同步 + Git Tag v0.4.0 (Python 421 + TypeScript 294)** |
 | **Phase 1E 完成** | **421+309** | **421+309** | **Task 1E.9 文档同步 + Git Tag v0.5.0 (Python 421 + TypeScript 309)** |
+| **Phase 1F 完成** | **421+317** | **421+317** | **Task 1F.6 文档同步 + Git Tag v0.6.0 (Python 421 + TypeScript 317)** |
 
 ---
 

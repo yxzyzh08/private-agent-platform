@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Archive } from 'lucide-react';
 import { Button } from '@/web/chat/components/ui/button';
 import { TaskItem } from './TaskItem';
 import type { ConversationSummary } from '../../types';
@@ -13,7 +13,7 @@ interface TaskListProps {
   loadingMore: boolean;
   hasMore: boolean;
   error: string | null;
-  activeTab: 'tasks' | 'agents' | 'history' | 'archive';
+  activeTab: 'tasks' | 'agents' | 'archive';
   onLoadMore: (filters?: {
     hasContinuation?: boolean;
     archived?: boolean;
@@ -38,6 +38,7 @@ export function TaskList({
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  const [isBatchArchiving, setIsBatchArchiving] = useState(false);
 
   // Clear selection when tab changes
   useEffect(() => {
@@ -45,14 +46,12 @@ export function TaskList({
   }, [activeTab]);
 
   // Get filter parameters based on active tab
-  const getFiltersForTab = (tab: 'tasks' | 'agents' | 'history' | 'archive') => {
+  const getFiltersForTab = (tab: 'tasks' | 'agents' | 'archive') => {
     switch (tab) {
       case 'tasks':
-        return { archived: false, hasContinuation: false, sessionType: 'user' };
+        return { archived: false, sessionType: 'user' };
       case 'agents':
         return { archived: false, hasContinuation: false, sessionType: 'agent' };
-      case 'history':
-        return { archived: false, hasContinuation: true };
       case 'archive':
         return { archived: true };
       default:
@@ -60,7 +59,7 @@ export function TaskList({
     }
   };
 
-  const isSelectable = activeTab === 'agents';
+  const isSelectable = activeTab === 'agents' || activeTab === 'archive' || activeTab === 'tasks';
 
   const handleToggleSelect = (sessionId: string) => {
     setSelectedIds(prev => {
@@ -84,7 +83,8 @@ export function TaskList({
 
   const handleBatchDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`permanently delete ${selectedIds.size} agent session(s)? This cannot be undone.`)) return;
+    const label = activeTab === 'archive' ? 'archived task(s)' : 'agent session(s)';
+    if (!window.confirm(`Permanently delete ${selectedIds.size} ${label}? This cannot be undone.`)) return;
 
     setIsBatchDeleting(true);
     try {
@@ -95,6 +95,22 @@ export function TaskList({
       console.error('Failed to batch delete:', err);
     } finally {
       setIsBatchDeleting(false);
+    }
+  };
+
+  const handleBatchArchive = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Archive ${selectedIds.size} task(s)?`)) return;
+
+    setIsBatchArchiving(true);
+    try {
+      await api.batchArchiveSessions(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      loadConversations(undefined, getFiltersForTab(activeTab));
+    } catch (err) {
+      console.error('Failed to batch archive:', err);
+    } finally {
+      setIsBatchArchiving(false);
     }
   };
 
@@ -220,7 +236,6 @@ export function TaskList({
     switch (activeTab) {
       case 'tasks': return 'No active tasks.';
       case 'agents': return 'No agent sessions.';
-      case 'history': return 'No history tasks.';
       case 'archive': return 'No archived tasks.';
       default: return 'No items.';
     }
@@ -238,7 +253,7 @@ export function TaskList({
 
   return (
     <div ref={scrollRef} className="flex flex-col w-full flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-transparent hover:scrollbar-thumb-border scrollbar-track-transparent">
-      {/* Batch toolbar for Agents tab */}
+      {/* Batch toolbar */}
       {isSelectable && conversations.length > 0 && (
         <div className="flex items-center gap-3 px-4 py-2 border-b border-border/30 bg-muted/10">
           <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
@@ -250,7 +265,19 @@ export function TaskList({
             />
             Select all
           </label>
-          {selectedIds.size > 0 && (
+          {selectedIds.size > 0 && activeTab === 'tasks' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted/30 h-7 px-2 text-xs"
+              onClick={handleBatchArchive}
+              disabled={isBatchArchiving}
+            >
+              <Archive size={14} className="mr-1" />
+              {isBatchArchiving ? 'Archiving...' : `Archive selected (${selectedIds.size})`}
+            </Button>
+          )}
+          {selectedIds.size > 0 && (activeTab === 'agents' || activeTab === 'archive') && (
             <Button
               variant="ghost"
               size="sm"
