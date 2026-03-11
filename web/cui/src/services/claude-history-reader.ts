@@ -95,12 +95,12 @@ export class ClaudeHistoryReader {
             };
           }
 
-          // Detect agent sessions: check if first user message contains <teammate-message>
+          // Detect agent sessions: check if first user message contains <teammate-message
           if (sessionInfo.session_type !== 'agent') {
             const firstUserMessage = chain.messages.find(msg => msg.type === 'user');
             if (firstUserMessage) {
               const content = this.extractMessageContent(firstUserMessage.message);
-              if (content.includes('<teammate-message>')) {
+              if (content.includes('<teammate-message')) {
                 sessionInfo = { ...sessionInfo, session_type: 'agent' };
                 try {
                   await this.sessionInfoService.updateSessionType(chain.sessionId, 'agent');

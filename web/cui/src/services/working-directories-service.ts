@@ -1,3 +1,5 @@
+import { readdir, stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import { WorkingDirectory, WorkingDirectoriesResponse } from '@/types/index.js';
 import { ClaudeHistoryReader } from './claude-history-reader.js';
 import { Logger } from './logger.js';
@@ -40,6 +42,14 @@ export class WorkingDirectoriesService {
         }
       }
 
+      // Scan filesystem for additional project directories
+      const fsDirectories = await this.scanFilesystemDirectories(directoryMap);
+      for (const [path, metadata] of fsDirectories.entries()) {
+        if (!directoryMap.has(path)) {
+          directoryMap.set(path, metadata);
+        }
+      }
+
       // Convert to array and compute shortnames
       const paths = Array.from(directoryMap.keys());
       const shortnames = this.computeShortnames(paths);
@@ -72,6 +82,53 @@ export class WorkingDirectoriesService {
       this.logger.error('Failed to get working directories', error);
       throw error;
     }
+  }
+
+  /**
+   * Scan parent directories of known projects to discover sibling project directories.
+   * This finds projects that exist on the filesystem but have no conversations yet.
+   */
+  private async scanFilesystemDirectories(
+    existingMap: Map<string, { lastDate: Date; count: number }>
+  ): Promise<Map<string, { lastDate: Date; count: number }>> {
+    const discovered = new Map<string, { lastDate: Date; count: number }>();
+    const IGNORED_DIRS = new Set(['node_modules', '.git', '__pycache__', '.venv', 'venv', '.tox']);
+
+    // Extract unique parent directories from known project paths
+    const parentDirs = new Set<string>();
+    for (const projectPath of existingMap.keys()) {
+      const parts = projectPath.split('/');
+      if (parts.length > 1) {
+        parentDirs.add(parts.slice(0, -1).join('/'));
+      }
+    }
+
+    for (const parentDir of parentDirs) {
+      try {
+        const entries = await readdir(parentDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          if (entry.name.startsWith('.') || IGNORED_DIRS.has(entry.name)) continue;
+
+          const fullPath = join(parentDir, entry.name);
+          if (existingMap.has(fullPath)) continue;
+
+          try {
+            const dirStat = await stat(fullPath);
+            discovered.set(fullPath, {
+              lastDate: dirStat.mtime,
+              count: 0
+            });
+          } catch {
+            // Skip directories we can't stat
+          }
+        }
+      } catch {
+        this.logger.debug('Could not scan parent directory', { parentDir });
+      }
+    }
+
+    return discovered;
   }
 
   /**

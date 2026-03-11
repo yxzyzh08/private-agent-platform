@@ -27,6 +27,16 @@
 > **每完成一个任务组（如 1A、1B），批量更新：**
 > 1. 更新 `docs/progress.md`（Quick Status 当前任务、进度、测试数）
 > 2. Commit 代码 + 文档
+>
+> **涉及 CUI 前端改动时，必须重建并重启 Docker 容器（当前环境即研发环境）：**
+> ```bash
+> docker-compose build cui && docker-compose up -d cui
+> ```
+> 如遇 `ContainerConfig` 错误，先手动删除旧容器再重建：
+> ```bash
+> docker rm -f $(docker ps -aq --filter "name=cui") 2>/dev/null; docker-compose up -d cui
+> ```
+> 验证：浏览器 Ctrl+Shift+R 强制刷新，确认改动生效
 
 **三层文档体系**：
 ```
@@ -67,6 +77,7 @@ docs/phases/phase-N.md       ← Tier 3: 当前Phase详细任务（输入/输出
 | Docker 启动 | `docker-compose up -d` |
 | Docker 查看日志 | `docker-compose logs -f` |
 | 检查配置 | `uv run python -c "import yaml; yaml.safe_load(open('config/platform.yaml')); print('OK')"` |
+| CUI 前端重建部署 | `docker-compose build cui && docker-compose up -d cui` |
 
 ---
 

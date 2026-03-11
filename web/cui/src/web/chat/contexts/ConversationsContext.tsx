@@ -15,6 +15,8 @@ interface ConversationsContextType {
   hasMore: boolean;
   error: string | null;
   recentDirectories: Record<string, RecentDirectory>;
+  selectedProjectPath: string | null;
+  setSelectedProjectPath: (path: string | null) => void;
   loadConversations: (limit?: number, filters?: {
     hasContinuation?: boolean;
     archived?: boolean;
@@ -37,6 +39,7 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recentDirectories, setRecentDirectories] = useState<Record<string, RecentDirectory>>({});
+  const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(null);
   const { subscribeToStreams, getStreamStatus, streamStatuses } = useStreamStatus();
 
   const loadWorkingDirectories = async (): Promise<Record<string, RecentDirectory> | null> => {
@@ -97,12 +100,13 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
       const loadLimit = limit || INITIAL_LIMIT;
       // Load working directories from API in parallel with conversations
       const [data, apiDirectories] = await Promise.all([
-        api.getConversations({ 
+        api.getConversations({
           limit: loadLimit,
           offset: 0,
           sortBy: 'updated',
           order: 'desc',
-          ...filters
+          ...filters,
+          ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
         }),
         loadWorkingDirectories()
       ]);
@@ -137,12 +141,13 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
     setLoadingMore(true);
     setError(null);
     try {
-      const data = await api.getConversations({ 
+      const data = await api.getConversations({
         limit: LOAD_MORE_LIMIT,
         offset: conversations.length,
         sortBy: 'updated',
         order: 'desc',
-        ...filters
+        ...filters,
+        ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
       });
       
       if (data.conversations.length === 0) {
@@ -210,16 +215,18 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
 
   return (
     <ConversationsContext.Provider 
-      value={{ 
-        conversations, 
-        loading, 
-        loadingMore, 
-        hasMore, 
-        error, 
+      value={{
+        conversations,
+        loading,
+        loadingMore,
+        hasMore,
+        error,
         recentDirectories,
-        loadConversations, 
-        loadMoreConversations, 
-        getMostRecentWorkingDirectory 
+        selectedProjectPath,
+        setSelectedProjectPath,
+        loadConversations,
+        loadMoreConversations,
+        getMostRecentWorkingDirectory
       }}
     >
       {children}

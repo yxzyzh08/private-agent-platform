@@ -9,16 +9,18 @@ import { TaskList } from './TaskList';
 
 export function Home() {
   const navigate = useNavigate();
-  const { 
-    conversations, 
-    loading, 
-    loadingMore, 
-    hasMore, 
-    error, 
-    loadConversations, 
+  const {
+    conversations,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    loadConversations,
     loadMoreConversations,
     recentDirectories,
-    getMostRecentWorkingDirectory 
+    getMostRecentWorkingDirectory,
+    selectedProjectPath,
+    setSelectedProjectPath
   } = useConversations();
   const [activeTab, setActiveTab] = useState<'tasks' | 'agents' | 'archive'>('tasks');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,11 +62,11 @@ export function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array means this runs only on mount
 
-  // Reload conversations when tab changes
+  // Reload conversations when tab or selected project changes
   useEffect(() => {
     loadConversations(undefined, getFiltersForTab(activeTab));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, selectedProjectPath]);
 
   // Auto-refresh on focus
   useEffect(() => {
@@ -93,9 +95,16 @@ export function Home() {
   }, [loadConversations, activeTab]);
 
   // Get the most recent working directory from conversations
-  const recentWorkingDirectory = conversations.length > 0 
-    ? conversations[0].projectPath 
+  const recentWorkingDirectory = conversations.length > 0
+    ? conversations[0].projectPath
     : undefined;
+
+  // Sync selectedProjectPath from conversations when it hasn't been set yet
+  useEffect(() => {
+    if (!selectedProjectPath && recentWorkingDirectory) {
+      setSelectedProjectPath(recentWorkingDirectory);
+    }
+  }, [recentWorkingDirectory, selectedProjectPath, setSelectedProjectPath]);
 
   const handleComposerSubmit = async (text: string, workingDirectory: string, model: string, permissionMode: string) => {
     setIsSubmitting(true);
@@ -156,6 +165,7 @@ export function Home() {
                   recentDirectories={recentDirectories}
                   getMostRecentWorkingDirectory={getMostRecentWorkingDirectory}
                   onDirectoryChange={(directory) => {
+                    setSelectedProjectPath(directory);
                     // Focus input after directory change
                     setTimeout(() => {
                       composerRef.current?.focusInput();
