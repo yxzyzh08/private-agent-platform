@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { createMarkdownComponents } from '../shared/markdownComponents';
+import { createMarkdownComponents, remarkPlugins } from '../shared/markdownComponents';
 import { MermaidBlock } from './MermaidBlock';
 
 interface DocsContentProps {
@@ -55,7 +55,7 @@ export function DocsContent({ content, loading, filePath, size, modifiedAt }: Do
 
       {/* Markdown content */}
       <div className="prose prose-sm dark:prose-invert max-w-[800px]">
-        <ReactMarkdown components={docsMarkdownComponents}>{content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={remarkPlugins} components={docsMarkdownComponents}>{content}</ReactMarkdown>
       </div>
     </div>
   );

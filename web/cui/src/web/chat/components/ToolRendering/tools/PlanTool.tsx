@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import { remarkPlugins } from '../../shared/markdownComponents';
 
 interface PlanToolProps {
   input: any;
@@ -14,6 +15,7 @@ export function PlanTool({ input, result }: PlanToolProps) {
     <div className="flex flex-col gap-1 -mt-0.5">
       <div className="bg-secondary rounded-xl p-4 mt-1 border-l-3 border-accent prose prose-sm prose-neutral dark:prose-invert max-w-none">
         <ReactMarkdown
+          remarkPlugins={remarkPlugins}
           components={{
             p: ({ children }) => <p className="my-2 first:mt-0 last:mb-0">{children}</p>,
             ul: ({ children }) => <ul className="my-2 pl-6 first:mt-0 last:mb-0">{children}</ul>,

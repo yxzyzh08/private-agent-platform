@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/web/chat/components/ui/tabs';
 import { FileText } from 'lucide-react';
 
@@ -34,13 +33,15 @@ export function TaskTabs({ activeTab, onTabChange }: TaskTabsProps) {
           >
             Archive
           </TabsTrigger>
-          <Link
-            to="/docs"
-            className="inline-flex items-center gap-1 border-0 rounded-none pb-3 pt-2 px-2 text-muted-foreground hover:text-muted-foreground/80 transition-colors text-sm font-medium"
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 border-0 rounded-none pb-3 pt-2 px-2 text-muted-foreground hover:text-muted-foreground/80 transition-colors text-sm font-medium no-underline"
           >
             <FileText size={14} />
             Docs
-          </Link>
+          </a>
         </TabsList>
       </div>
     </Tabs>

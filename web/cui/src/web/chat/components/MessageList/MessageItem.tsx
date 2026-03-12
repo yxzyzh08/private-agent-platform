@@ -3,7 +3,7 @@ import { Copy, Check, Code, Globe, Settings, FileText, Edit, Terminal, Search, L
 import ReactMarkdown from 'react-markdown';
 import { JsonViewer } from '../JsonViewer/JsonViewer';
 import { ToolUseRenderer } from '../ToolRendering/ToolUseRenderer';
-import { markdownComponents } from '../shared/markdownComponents';
+import { markdownComponents, remarkPlugins } from '../shared/markdownComponents';
 import type { ChatMessage, ToolResult } from '../../types';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages/messages';
 
@@ -271,7 +271,7 @@ export function MessageItem({
                 <div className="mt-1 w-2.5 h-2.5 bg-foreground rounded-full" />
               </div>
               <div className="flex-1 min-w-0 prose prose-sm max-w-none dark:prose-invert">
-              <ReactMarkdown components={markdownComponents}>{message.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{message.content}</ReactMarkdown>
             </div>
           </div>
         );
@@ -294,7 +294,7 @@ export function MessageItem({
                       <div className="mt-1 w-2.5 h-2.5 bg-foreground rounded-full" />
                     </div>
                     <div className="flex-1 min-w-0 prose prose-sm max-w-none dark:prose-invert">
-                      <ReactMarkdown components={markdownComponents}>{block.text}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{block.text}</ReactMarkdown>
                     </div>
                   </div>
                 );
@@ -307,7 +307,7 @@ export function MessageItem({
                       Thinking
                     </summary>
                     <div className="mt-1 flex-1 min-w-0 prose prose-sm max-w-none italic text-muted-foreground dark:prose-invert pl-4 border-l border-muted">
-                      <ReactMarkdown components={markdownComponents}>{block.thinking}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{block.thinking}</ReactMarkdown>
                     </div>
                   </details>
                 );

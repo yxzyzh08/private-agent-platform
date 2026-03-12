@@ -1,5 +1,9 @@
 import React from 'react';
+import remarkGfm from 'remark-gfm';
 import { CodeHighlight } from '../CodeHighlight';
+
+// Shared remark plugins for all ReactMarkdown usages (GFM = tables, strikethrough, etc.)
+export const remarkPlugins = [remarkGfm];
 
 export function createMarkdownComponents(opts?: { mermaidRenderer?: React.ComponentType<{ code: string }> }) {
   return {

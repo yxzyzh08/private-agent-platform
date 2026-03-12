@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { remarkPlugins } from '../shared/markdownComponents';
 import * as Checkbox from '@radix-ui/react-checkbox';
 import type { QuestionRequest, Question } from '../../types';
 import { api } from '../../services/api';
@@ -250,7 +251,7 @@ function QuestionItem({
           <div className="w-1/2 border border-border rounded-md p-3 bg-muted/50 overflow-auto max-h-64">
             {activePreview ? (
               <div className="prose prose-sm prose-invert max-w-none">
-                <ReactMarkdown>{activePreview}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={remarkPlugins}>{activePreview}</ReactMarkdown>
               </div>
             ) : (
               <div className="text-xs text-muted-foreground italic">Select an option to see preview</div>
