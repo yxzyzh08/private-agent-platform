@@ -192,9 +192,10 @@ export function Home() {
                 />
               </div>
 
-              <TaskTabs 
+              <TaskTabs
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
+                projectPath={selectedProjectPath}
               />
             </div>
 

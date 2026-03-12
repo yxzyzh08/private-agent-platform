@@ -24,7 +24,10 @@ function flattenFiles(node: DocsTreeNode): DocsTreeNode[] {
 export function DocsView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { selectedProjectPath } = useConversations();
+  const { selectedProjectPath: contextProjectPath } = useConversations();
+
+  // URL param takes priority (new tab), then fall back to context (same tab)
+  const selectedProjectPath = searchParams.get('project') || contextProjectPath;
 
   const [treeData, setTreeData] = useState<DocsTreeNode | null>(null);
   const [treeLoading, setTreeLoading] = useState(false);
@@ -88,7 +91,8 @@ export function DocsView() {
           if (err.message?.includes('404') || err.message?.includes('not found')) {
             // File doesn't exist, clear URL and show welcome
             setSelectedFile(null);
-            setSearchParams({}, { replace: true });
+            const projectParam = searchParams.get('project');
+            setSearchParams(projectParam ? { project: projectParam } : {}, { replace: true });
           } else {
             setFileContent(null);
             setFileMeta({});
@@ -103,10 +107,13 @@ export function DocsView() {
   }, [selectedFile, selectedProjectPath, setSearchParams]);
 
   // Sync URL with selected file
-  const handleSelectFile = useCallback((path: string) => {
-    setSelectedFile(path);
-    setSearchParams({ file: path }, { replace: true });
-  }, [setSearchParams]);
+  const handleSelectFile = useCallback((filePath: string) => {
+    setSelectedFile(filePath);
+    const projectParam = searchParams.get('project');
+    const params: Record<string, string> = { file: filePath };
+    if (projectParam) params.project = projectParam;
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // On mount, restore file from URL
   useEffect(() => {

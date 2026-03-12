@@ -5,9 +5,11 @@ import { FileText } from 'lucide-react';
 interface TaskTabsProps {
   activeTab: 'tasks' | 'agents' | 'archive';
   onTabChange: (tab: 'tasks' | 'agents' | 'archive') => void;
+  projectPath?: string | null;
 }
 
-export function TaskTabs({ activeTab, onTabChange }: TaskTabsProps) {
+export function TaskTabs({ activeTab, onTabChange, projectPath }: TaskTabsProps) {
+  const docsHref = projectPath ? `/docs?project=${encodeURIComponent(projectPath)}` : '/docs';
   return (
     <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as 'tasks' | 'agents' | 'archive')} className="w-full mt-4">
       <div className="w-full border-b border-border/30">
@@ -34,7 +36,7 @@ export function TaskTabs({ activeTab, onTabChange }: TaskTabsProps) {
             Archive
           </TabsTrigger>
           <a
-            href="/docs"
+            href={docsHref}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 border-0 rounded-none pb-3 pt-2 px-2 text-muted-foreground hover:text-muted-foreground/80 transition-colors text-sm font-medium no-underline"
