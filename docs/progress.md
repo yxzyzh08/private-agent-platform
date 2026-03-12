@@ -46,6 +46,7 @@
 | Phase 1E | CUI Agents Tab — 子代理会话分离 + 批量删除 | ✅ 完成 | 9/9 | [phase-1e.md](phases/phase-1e.md) |
 | Phase 1F | CUI UI 优化 — 移除 History Tab + 批量操作增强 | ✅ 完成 | 6/6 | [phase-1f.md](phases/phase-1f.md) |
 | Phase 1G | CUI AskUserQuestion 交互支持 | ✅ 完成 | 13/13 | [phase-1g.md](phases/phase-1g.md) |
+| Phase 1H | CUI 项目文档查看器 | ⚪ 未开始 | 0/11 | [phase-1h.md](phases/phase-1h.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |

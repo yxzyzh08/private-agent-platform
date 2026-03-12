@@ -1087,6 +1087,39 @@ private-agent-platform/
 
 ---
 
+### Phase 1G — CUI AskUserQuestion 交互支持
+
+**前置条件**：Phase 1F 完成
+
+**目标**: CUI 完整支持 Claude 的选项式提问（AskUserQuestion），用户在浏览器对话流中直接点选回答，支持单选/多选/Other 输入/Preview 预览
+
+| # | 验收用例 | 预期结果 |
+|---|---------|---------|
+| AC-1G.1 | MCP 工具替代 | Claude CLI 使用 MCP `ask_user` 工具替代内建 AskUserQuestion，问题通过 HTTP 传递到 CUI Backend |
+| AC-1G.2 | 内联选项卡片 | Claude 发出选项式提问时，CUI 消息流中内联显示问题卡片（header + 选项列表） |
+| AC-1G.3 | 完整交互 | 支持单选、多选、Other 自由输入、Preview 预览（代码片段/mockup 左右分栏），用户点选后 Submit 提交 |
+| AC-1G.4 | 端到端闭环 | 用户提交选择后，Claude CLI 收到回答并继续执行，对话正常推进 |
+| AC-1G.5 | 页面恢复 | 页面刷新后未回答的问题卡片恢复显示，已回答的显示只读状态 |
+
+---
+
+### Phase 1H — CUI 项目文档查看器
+
+**前置条件**：Phase 1G 完成
+
+**目标**: CUI 新增项目文档查看功能（只读），左侧目录树 + 右侧 Markdown 渲染，支持 Mermaid 流程图
+
+| # | 验收用例 | 预期结果 |
+|---|---------|---------|
+| AC-1H.1 | Docs API | `GET /api/docs/tree` 返回正确目录树，`GET /api/docs/content` 返回 Markdown 内容 |
+| AC-1H.2 | 安全防护 | 路径穿越攻击返回 403，非 .md 文件拒绝读取，超 1MB 文件返回 413 |
+| AC-1H.3 | Docs Tab | CUI 首页显示 Docs 导航链接，点击进入文档查看器 |
+| AC-1H.4 | 文档浏览 | 左侧目录树展示 docs/ 下的 .md 文件，可展开/折叠目录，点击文件右侧渲染内容 |
+| AC-1H.5 | Mermaid 渲染 | Mermaid 代码块渲染为 SVG 图表（flowchart、sequence diagram 等），暗色模式适配 |
+| AC-1H.6 | URL 直达 | `/docs?file=docs/phases/phase-1a.md` 直接打开指定文件 |
+
+---
+
 ### Phase 2 — 知识库机器人
 
 **前置条件**：Phase 1 完成
@@ -1204,4 +1237,4 @@ async def test_claude_api_real():
 ---
 
 
-*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-10（v0.10 新增 DV-31~DV-34 Phase 1D cui 全流程集成功能点；§3.5 横切面表新增 Phase 1D 条目；§12 新增 Phase 1C/1D 验收用例）*
+*文档由 Claude Code 生成，基于需求沟通整理。最后更新：2026-03-12（v0.12 新增 Phase 1G CUI AskUserQuestion 交互支持验收用例）*
