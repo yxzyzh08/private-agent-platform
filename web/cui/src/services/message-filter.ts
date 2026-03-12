@@ -10,7 +10,8 @@ export class MessageFilter {
   private filteredPrefixes: string[] = [
     'Caveat: ',
     '<command-name>',
-    '<local-command-stdout>'
+    '<local-command-stdout>',
+    '<local-command-caveat>'
   ];
 
   constructor() {

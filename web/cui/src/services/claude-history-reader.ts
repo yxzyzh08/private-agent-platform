@@ -324,11 +324,11 @@ export class ClaudeHistoryReader {
   private async parseAllConversations(): Promise<ConversationChain[]> {
     const startTime = Date.now();
     this.logger.debug('Starting parseAllConversations with file-level caching');
-    
+
     // Get current file modification times
     const currentModTimes = await this.getFileModificationTimes();
     this.logger.debug('Retrieved file modification times', { fileCount: currentModTimes.size });
-    
+
     // Use the new file-level cache interface
     const conversations = await this.conversationCache.getOrParseConversations(
       currentModTimes,
@@ -336,14 +336,55 @@ export class ClaudeHistoryReader {
       (filePath: string) => this.extractSourceProject(filePath), // Get source project
       (allEntries: (RawJsonEntry & { sourceProject: string })[]) => this.processAllEntries(allEntries) // Process entries
     );
-    
+
+    // Auto-cleanup: delete JSONL files for empty shell sessions (all messages filtered out)
+    // This runs in the background to avoid blocking the response
+    this.cleanupEmptyShellSessions(currentModTimes, conversations).catch(err => {
+      this.logger.warn('Failed to cleanup empty shell sessions', { error: err });
+    });
+
     const totalElapsed = Date.now() - startTime;
-    this.logger.debug('File-level cached conversation parsing completed', { 
+    this.logger.debug('File-level cached conversation parsing completed', {
       conversationCount: conversations.length,
       totalElapsedMs: totalElapsed
     });
-    
+
     return conversations;
+  }
+
+  /**
+   * Delete JSONL files for sessions where all messages were filtered out (empty shell sessions).
+   * These are typically created by /clear or /exit and contain only system command messages.
+   */
+  private async cleanupEmptyShellSessions(
+    filePaths: Map<string, number>,
+    validConversations: ConversationChain[]
+  ): Promise<void> {
+    const validSessionIds = new Set(validConversations.map(c => c.sessionId));
+
+    for (const filePath of filePaths.keys()) {
+      const fileName = path.basename(filePath, '.jsonl');
+      // Skip files that don't look like session IDs (UUID format)
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(fileName)) {
+        continue;
+      }
+
+      // If this file's sessionId is not in valid conversations, it's an empty shell
+      if (!validSessionIds.has(fileName)) {
+        try {
+          await fs.unlink(filePath);
+          // Also clean up from session-info DB
+          try {
+            await this.sessionInfoService.deleteSession(fileName);
+          } catch {
+            // Session may not exist in DB, ignore
+          }
+          this.logger.info('Auto-cleaned empty shell session', { sessionId: fileName, filePath });
+        } catch (err) {
+          this.logger.warn('Failed to auto-clean empty shell session', { sessionId: fileName, error: err });
+        }
+      }
+    }
   }
   
   /**

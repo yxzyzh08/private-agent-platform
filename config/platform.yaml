@@ -1,5 +1,6 @@
 platform:
   name: "My Agent Platform"
+  environment: development  # development | production — 决定部署方式，详见 docs/deployment.md
   owner_telegram_id: "YOUR_TELEGRAM_ID"
 
 models:

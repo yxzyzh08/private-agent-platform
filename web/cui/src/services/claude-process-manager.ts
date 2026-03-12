@@ -366,19 +366,30 @@ export class ClaudeProcessManager extends EventEmitter {
           return; // Already resolved
         }
 
+        // Skip hook-related system messages (hook_started, hook_completed, etc.)
+        // These arrive before system/init when Claude Code hooks are configured
+        if (message?.type === 'system' && 'subtype' in message &&
+            typeof message.subtype === 'string' && message.subtype.startsWith('hook_')) {
+          this.logger.debug('Skipping hook system message while waiting for init', {
+            streamingId,
+            subtype: message.subtype
+          });
+          return; // Keep waiting for the init message
+        }
+
         isResolved = true;
         cleanup();
 
-        this.logger.debug('Received first message from Claude CLI', {
+        this.logger.debug('Received first non-hook message from Claude CLI', {
           streamingId,
           messageType: message?.type,
           messageSubtype: 'subtype' in message ? message.subtype : undefined,
           hasSessionId: 'session_id' in message ? !!message.session_id : false
         });
 
-        // Validate that the first message is a system init message
+        // Validate that the first non-hook message is a system init message
         if (!message || message.type !== 'system' || !('subtype' in message) || message.subtype !== 'init') {
-          this.logger.error('First message is not system init', {
+          this.logger.error('First non-hook message is not system init', {
             streamingId,
             actualType: message?.type,
             actualSubtype: 'subtype' in message ? message.subtype : undefined,

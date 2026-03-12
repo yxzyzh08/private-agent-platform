@@ -2,6 +2,9 @@
 
 > **定位**：本文件告诉 Claude Code **怎么工作**（流程、规范、工具）。
 > 项目**要做什么**见 [`docs/requirement.md`](docs/requirement.md)，**做到哪了**见 [`docs/progress.md`](docs/progress.md)。
+>
+> **当前环境**：以 `config/platform.yaml` 中 `platform.environment` 为准（`development` = 研发模式 / `production` = 生产模式）。
+> 部署方式见 [`docs/deployment.md`](docs/deployment.md)：研发模式宿主机直接运行 Platform 和 CUI，仅 Redis 用 Docker；生产模式全容器化。
 
 ---
 
@@ -28,15 +31,14 @@
 > 1. 更新 `docs/progress.md`（Quick Status 当前任务、进度、测试数）
 > 2. Commit 代码 + 文档
 >
-> **涉及 CUI 前端改动时，必须重建并重启 Docker 容器（当前环境即研发环境）：**
+> **涉及 CUI 前端改动时（研发模式，宿主机直接运行）：**
 > ```bash
-> docker-compose build cui && docker-compose up -d cui
+> cd web/cui && npm run build && npm start
 > ```
-> 如遇 `ContainerConfig` 错误，先手动删除旧容器再重建：
-> ```bash
-> docker rm -f $(docker ps -aq --filter "name=cui") 2>/dev/null; docker-compose up -d cui
-> ```
-> 验证：浏览器 Ctrl+Shift+R 强制刷新，确认改动生效
+> 如使用 `npm run dev` 开发模式，前端改动自动热更新，无需手动重启。
+> 验证：浏览器 Ctrl+Shift+R 强制刷新，确认改动生效。
+>
+> 完整部署说明见 [`docs/deployment.md`](docs/deployment.md)。
 
 **三层文档体系**：
 ```
@@ -74,10 +76,12 @@ docs/phases/phase-N.md       ← Tier 3: 当前Phase详细任务（输入/输出
 | 运行集成测试 | `uv run pytest tests/unit/ tests/integration/ -v` |
 | Lint 检查 | `uv run ruff check .` |
 | 格式化代码 | `uv run ruff format .` |
-| Docker 启动 | `docker-compose up -d` |
+| Redis 启动 | `docker-compose up -d redis` |
+| 启动 CUI (研发) | `cd web/cui && npm run dev` |
+| CUI 构建+启动 | `cd web/cui && npm run build && npm start` |
+| Docker 全量启动 (生产) | `docker-compose up -d` |
 | Docker 查看日志 | `docker-compose logs -f` |
 | 检查配置 | `uv run python -c "import yaml; yaml.safe_load(open('config/platform.yaml')); print('OK')"` |
-| CUI 前端重建部署 | `docker-compose build cui && docker-compose up -d cui` |
 
 ---
 

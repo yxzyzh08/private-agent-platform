@@ -165,9 +165,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
                 },
                 options: {
                   type: 'array',
-                  description: 'Available choices (2-4 options)',
+                  description: 'Available choices (2-10 options)',
                   minItems: 2,
-                  maxItems: 4,
+                  maxItems: 10,
                   items: {
                     type: 'object',
                     properties: {
