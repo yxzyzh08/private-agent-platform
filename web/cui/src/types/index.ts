@@ -99,6 +99,29 @@ export interface PermissionRequest {
   denyReason?: string;
 }
 
+// Question types (AskUserQuestion via MCP)
+export interface QuestionOption {
+  label: string;
+  description: string;
+  preview?: string;
+}
+
+export interface Question {
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
+}
+
+export interface QuestionRequest {
+  id: string;
+  streamingId: string;
+  questions: Question[];
+  timestamp: string;
+  status: 'pending' | 'answered';
+  answers?: Record<string, string | string[]>; // key = question index ("0", "1", ...)
+}
+
 // Configuration types
 export interface ConversationConfig {
   workingDirectory: string;
@@ -185,6 +208,7 @@ export interface SystemStatusResponse {
 export type StreamEvent = 
   | { type: 'connected'; streaming_id: string; timestamp: string }
   | { type: 'permission_request'; data: PermissionRequest; streamingId: string; timestamp: string }
+  | { type: 'question_request'; data: QuestionRequest; streamingId: string; timestamp: string }
   | { type: 'error'; error: string; streamingId: string; timestamp: string }
   | { type: 'closed'; streamingId: string; timestamp: string }
   | SystemInitMessage

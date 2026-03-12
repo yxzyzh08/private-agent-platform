@@ -169,7 +169,7 @@ export class ClaudeProcessManager extends EventEmitter {
     const spawnConfig = {
       executablePath: config.claudeExecutablePath || this.claudeExecutablePath,
       cwd: workingDirectory || config.workingDirectory || process.cwd(),
-      env: { ...process.env, ...this.envOverrides } as NodeJS.ProcessEnv
+      env: (() => { const env = { ...process.env, ...this.envOverrides }; delete env.CLAUDECODE; return env; })() as NodeJS.ProcessEnv
     };
     
     this.logger.debug('Spawn config prepared', {
@@ -633,8 +633,10 @@ export class ClaudeProcessManager extends EventEmitter {
       args.push('--mcp-config', this.mcpConfigPath);
       // Add the permission prompt tool flag
       args.push('--permission-prompt-tool', 'mcp__cui-permissions__approval_prompt');
-      // Allow the MCP permission tool
-      args.push('--allowedTools', 'mcp__cui-permissions__approval_prompt');
+      // Allow the MCP permission + ask_user tools
+      args.push('--allowedTools', 'mcp__cui-permissions__approval_prompt,mcp__cui-permissions__ask_user');
+      // Disallow built-in AskUserQuestion (replaced by MCP ask_user)
+      args.push('--disallowedTools', 'AskUserQuestion');
     }
 
     this.logger.debug('Built Claude resume args', { args, hasMCPConfig: !!this.mcpConfigPath });
@@ -698,6 +700,7 @@ export class ClaudeProcessManager extends EventEmitter {
       // Allow the MCP permission tool + platform tools
       const mcpTools = [
         'mcp__cui-permissions__approval_prompt',
+        'mcp__cui-permissions__ask_user',
         'mcp__platform-tools__init_project',
         'mcp__platform-tools__submit_phase',
         'mcp__platform-tools__get_plan_status',
@@ -709,6 +712,9 @@ export class ClaudeProcessManager extends EventEmitter {
       if (newTools.length > 0) {
         args.push('--allowedTools', newTools.join(','));
       }
+
+      // Disallow built-in AskUserQuestion (replaced by MCP ask_user)
+      args.push('--disallowedTools', 'AskUserQuestion');
     }
 
     this.logger.debug('Built Claude args', { args, hasMCPConfig: !!this.mcpConfigPath });

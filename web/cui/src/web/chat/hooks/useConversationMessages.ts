@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { ChatMessage, StreamEvent, ToolResult } from '../types';
 import type { ContentBlock, ContentBlockParam } from '@anthropic-ai/sdk/resources/messages/messages';
-import type { PermissionRequest } from '@/types';
+import type { PermissionRequest, QuestionRequest } from '@/types';
 
 interface UseConversationMessagesOptions {
   onUserMessage?: (message: ChatMessage) => void;
@@ -21,6 +21,7 @@ export function useConversationMessages(options: UseConversationMessagesOptions 
   const [toolResults, setToolResults] = useState<Record<string, ToolResult>>({});
   const [currentWorkingDirectory, setCurrentWorkingDirectory] = useState<string | undefined>();
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
+  const [currentQuestionRequest, setCurrentQuestionRequest] = useState<QuestionRequest | null>(null);
   const [childrenMessages, setChildrenMessages] = useState<Record<string, ChatMessage[]>>({});
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
@@ -32,6 +33,7 @@ export function useConversationMessages(options: UseConversationMessagesOptions 
     setToolResults({});
     setCurrentWorkingDirectory(undefined);
     setCurrentPermissionRequest(null);
+    setCurrentQuestionRequest(null);
     setChildrenMessages({});
     setExpandedTasks(new Set());
   }, []);
@@ -192,14 +194,20 @@ export function useConversationMessages(options: UseConversationMessagesOptions 
       case 'closed':
         // Stream closed
         options.onClosed?.();
-        // Clear permission request when stream closes
+        // Clear permission and question requests when stream closes
         setCurrentPermissionRequest(null);
+        setCurrentQuestionRequest(null);
         break;
 
       case 'permission_request':
         // Handle permission request
         setCurrentPermissionRequest(event.data);
         options.onPermissionRequest?.(event.data);
+        break;
+
+      case 'question_request':
+        // Handle AskUserQuestion request
+        setCurrentQuestionRequest(event.data);
         break;
     }
   }, [addMessage, options, currentWorkingDirectory]);
@@ -304,10 +312,16 @@ export function useConversationMessages(options: UseConversationMessagesOptions 
     setCurrentPermissionRequest(permission);
   }, []);
 
+  // Clear current question request (after answering)
+  const clearQuestionRequest = useCallback(() => {
+    setCurrentQuestionRequest(null);
+  }, []);
+
   return {
     messages,
     toolResults,
     currentPermissionRequest,
+    currentQuestionRequest,
     childrenMessages,
     expandedTasks,
     addMessage,
@@ -317,5 +331,7 @@ export function useConversationMessages(options: UseConversationMessagesOptions 
     toggleTaskExpanded,
     clearPermissionRequest,
     setPermissionRequest,
+    clearQuestionRequest,
+    setCurrentQuestionRequest,
   };
 }

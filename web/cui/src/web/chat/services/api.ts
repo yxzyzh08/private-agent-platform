@@ -11,6 +11,7 @@ import type {
   FileSystemListQuery,
   FileSystemListResponse,
   CommandsResponse,
+  QuestionRequest,
 } from '../types';
 import { getAuthToken } from '../../hooks/useAuth';
 type GeminiHealthResponse = { status: 'healthy' | 'unhealthy'; message: string; apiKeyValid: boolean };
@@ -267,6 +268,27 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({}),
     });
+  }
+
+  // Question (AskUserQuestion) endpoints
+  async answerQuestion(
+    questionId: string,
+    answers: Record<string, string | string[]>
+  ): Promise<{ success: boolean }> {
+    return this.apiCall(`/api/questions/${questionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+  }
+
+  async getQuestionsByStreamingId(
+    streamingId: string,
+    status?: 'pending' | 'answered'
+  ): Promise<{ questions: QuestionRequest[] }> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('streamingId', streamingId);
+    if (status) searchParams.append('status', status);
+    return this.apiCall(`/api/questions?${searchParams}`);
   }
 
   // For endpoints that need direct fetch with auth (like SSE streams)

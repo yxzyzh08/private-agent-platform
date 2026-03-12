@@ -25,6 +25,7 @@ export function ConversationView() {
     messages,
     toolResults,
     currentPermissionRequest,
+    currentQuestionRequest,
     childrenMessages,
     expandedTasks,
     clearMessages,
@@ -34,6 +35,8 @@ export function ConversationView() {
     toggleTaskExpanded,
     clearPermissionRequest,
     setPermissionRequest,
+    clearQuestionRequest,
+    setCurrentQuestionRequest,
   } = useConversationMessages({
     onResult: (newSessionId) => {
       // Navigate to the new session page if session changed
@@ -130,6 +133,24 @@ export function ConversationView() {
               // Don't break conversation loading if permission fetching fails
               console.warn('[ConversationView] Failed to fetch existing permissions:', permissionError);
             }
+
+            // Also check for pending question requests (AskUserQuestion)
+            try {
+              const { questions } = await api.getQuestionsByStreamingId(
+                currentConversation.streamingId,
+                'pending'
+              );
+
+              if (questions.length > 0) {
+                // Take the most recent pending question
+                const mostRecent = questions.reduce((latest, current) =>
+                  new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest
+                );
+                setCurrentQuestionRequest(mostRecent);
+              }
+            } catch (questionError) {
+              console.warn('[ConversationView] Failed to fetch existing questions:', questionError);
+            }
           }
         }
       } catch (err: any) {
@@ -189,6 +210,16 @@ export function ConversationView() {
       return;
     }
 
+    // Add user message to chat immediately for instant feedback
+    addMessage({
+      id: `user-${Date.now()}`,
+      messageId: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'user',
+      content: message,
+      timestamp: new Date().toISOString(),
+      workingDirectory: workingDirectory || currentWorkingDirectory,
+    });
+
     try {
       const response = await api.startConversation({
         resumedSessionId: sessionId,
@@ -198,8 +229,9 @@ export function ConversationView() {
         permissionMode
       });
 
-      // Navigate immediately to the new session
-      navigate(`/c/${response.sessionId}`);
+      // Set streamingId immediately so useStreaming connects before messages are dropped.
+      // Navigation to the new session happens later via onResult callback when Claude finishes.
+      setStreamingId(response.streamingId);
     } catch (err: any) {
       setError(err.message || 'Failed to send message');
     }
@@ -311,7 +343,7 @@ export function ConversationView() {
         </div>
       )}
 
-      <MessageList 
+      <MessageList
         messages={messages}
         toolResults={toolResults}
         childrenMessages={childrenMessages}
@@ -319,6 +351,8 @@ export function ConversationView() {
         onToggleTaskExpanded={toggleTaskExpanded}
         isLoading={isLoading}
         isStreaming={!!streamingId}
+        questionRequest={currentQuestionRequest}
+        onQuestionAnswered={clearQuestionRequest}
       />
 
       <div 

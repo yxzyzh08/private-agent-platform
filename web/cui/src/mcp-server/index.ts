@@ -6,7 +6,7 @@ import fetch from 'node-fetch';
 import { logger } from '@/services/logger.js';
 
 // Type definitions
-interface PermissionNotificationResponse {
+interface NotifyResponse {
   success: boolean;
   id: string;
 }
@@ -22,11 +22,93 @@ interface PermissionsResponse {
   permissions: Permission[];
 }
 
+interface QuestionRecord {
+  id: string;
+  status: 'pending' | 'answered';
+  answers?: Record<string, string | string[]>;
+}
+
+interface QuestionPollResponse {
+  question: QuestionRecord;
+}
+
+// MCP tool result type — compatible with SDK's CallToolResult
+interface McpToolResult {
+  [key: string]: unknown;
+  content: Array<{ type: string; text: string }>;
+}
+
 // Get CUI server URL from environment
 const CUI_SERVER_URL = process.env.CUI_SERVER_URL || `http://localhost:${process.env.CUI_SERVER_PORT || '3001'}`;
 
 // Get CUI streaming ID from environment (passed by ClaudeProcessManager)
 const CUI_STREAMING_ID = process.env.CUI_STREAMING_ID;
+
+// Shared constants
+const POLL_INTERVAL = 1000; // 1 second
+const TIMEOUT = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Send a notification POST to the CUI server and return the created ID.
+ */
+async function sendNotification(url: string, body: Record<string, unknown>, label: string): Promise<string> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error(`Failed to notify CUI server for ${label}`, { status: response.status, error: errorText });
+    throw new Error(`Failed to notify CUI server: ${errorText}`);
+  }
+
+  const data = await response.json() as NotifyResponse;
+  logger.debug(`${label} request created`, { id: data.id, streamingId: CUI_STREAMING_ID });
+  return data.id;
+}
+
+/**
+ * Poll a URL until a check function returns a result, or timeout.
+ */
+async function pollUntilResolved<T>(
+  pollUrl: string,
+  checkFn: (data: T) => McpToolResult | null,
+  label: string,
+): Promise<McpToolResult> {
+  const startTime = Date.now();
+
+  while (true) {
+    if (Date.now() - startTime > TIMEOUT) {
+      logger.warn(`${label} request timed out`, { pollUrl });
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          behavior: 'deny',
+          message: `${label} request timed out after 1 hour — user did not respond`,
+        }) }],
+      };
+    }
+
+    const pollResponse = await fetch(pollUrl, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!pollResponse.ok) {
+      logger.error(`Failed to poll ${label} status`, { status: pollResponse.status });
+      throw new Error(`Failed to poll ${label} status: ${pollResponse.status}`);
+    }
+
+    const data = await pollResponse.json() as T;
+    const result = checkFn(data);
+    if (result) {
+      return result;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+  }
+}
 
 // Create MCP server
 const server = new Server({
@@ -38,101 +120,135 @@ const server = new Server({
   },
 });
 
-// Define the approval_prompt tool
+// Define tools
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [{
-    name: 'approval_prompt',
-    description: 'Request approval for tool usage from CUI',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tool_name: {
-          type: 'string',
-          description: 'The tool requesting permission',
+  tools: [
+    {
+      name: 'approval_prompt',
+      description: 'Request approval for tool usage from CUI',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          tool_name: {
+            type: 'string',
+            description: 'The tool requesting permission',
+          },
+          input: {
+            type: 'object',
+            description: 'The input for the tool',
+          },
         },
-        input: {
-          type: 'object',
-          description: 'The input for the tool',
-        },
+        required: ['tool_name', 'input'],
       },
-      required: ['tool_name', 'input'],
     },
-  }],
+    {
+      name: 'ask_user',
+      description: 'Ask the user a question with selectable options in CUI. Supports 1-4 questions, each with 2-4 options. Supports single-select and multi-select modes.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          questions: {
+            type: 'array',
+            description: 'Array of 1-4 questions to ask the user',
+            minItems: 1,
+            maxItems: 4,
+            items: {
+              type: 'object',
+              properties: {
+                question: {
+                  type: 'string',
+                  description: 'The question text',
+                },
+                header: {
+                  type: 'string',
+                  description: 'Short label displayed as a chip/tag (max 12 chars)',
+                },
+                options: {
+                  type: 'array',
+                  description: 'Available choices (2-4 options)',
+                  minItems: 2,
+                  maxItems: 4,
+                  items: {
+                    type: 'object',
+                    properties: {
+                      label: { type: 'string', description: 'Display text for the option' },
+                      description: { type: 'string', description: 'Explanation of what this option means' },
+                      preview: { type: 'string', description: 'Optional preview content (markdown)' },
+                    },
+                    required: ['label', 'description'],
+                  },
+                },
+                multiSelect: {
+                  type: 'boolean',
+                  description: 'Whether to allow multiple selections',
+                  default: false,
+                },
+              },
+              required: ['question', 'header', 'options', 'multiSelect'],
+            },
+          },
+        },
+        required: ['questions'],
+      },
+    },
+  ],
 }));
 
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name !== 'approval_prompt') {
-    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
+  const toolName = request.params.name;
+
+  if (toolName === 'approval_prompt') {
+    return handleApprovalPrompt(request.params.arguments as { tool_name: string; input: Record<string, unknown> });
   }
 
-  const { tool_name, input } = request.params.arguments as { tool_name: string; input: Record<string, unknown> };
+  if (toolName === 'ask_user') {
+    return handleAskUser(request.params.arguments as { questions: unknown[] });
+  }
+
+  throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${toolName}`);
+});
+
+/**
+ * Handle approval_prompt tool call.
+ * Uses two-phase list-based polling (check pending, then fetch all).
+ */
+async function handleApprovalPrompt(args: { tool_name: string; input: Record<string, unknown> }): Promise<McpToolResult> {
+  const { tool_name, input } = args;
 
   try {
-    
-    // Log the permission request
     logger.debug('MCP Permission request received', { tool_name, input, streamingId: CUI_STREAMING_ID });
 
-    // Send the permission request to CUI server
-    const response = await fetch(`${CUI_SERVER_URL}/api/permissions/notify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const permissionRequestId = await sendNotification(
+      `${CUI_SERVER_URL}/api/permissions/notify`,
+      {
         toolName: tool_name,
         toolInput: input,
-        streamingId: CUI_STREAMING_ID || 'unknown', // Include the streaming ID from environment
-      }),
-    });
+        streamingId: CUI_STREAMING_ID || 'unknown',
+      },
+      'Permission',
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('Failed to notify CUI server', { status: response.status, error: errorText });
-      throw new Error(`Failed to notify CUI server: ${errorText}`);
-    }
-
-    // Get the permission request ID from the notification response
-    const notificationData = await response.json() as PermissionNotificationResponse;
-    const permissionRequestId = notificationData.id;
-
-    logger.debug('Permission request created', { permissionRequestId, streamingId: CUI_STREAMING_ID });
-
-    // Poll for permission decision
-    const POLL_INTERVAL = 1000; // 1 second
-    const TIMEOUT = 60 * 60 * 1000; // 1 hour
     const startTime = Date.now();
 
-     
     while (true) {
-      // Check timeout
       if (Date.now() - startTime > TIMEOUT) {
         logger.warn('Permission request timed out', { tool_name, permissionRequestId });
-        const timeoutResponse = {
-          behavior: 'deny',
-          message: 'Permission request timed out after 10 minutes after user did not respond',
-        };
         return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify(timeoutResponse),
-          }],
+          content: [{ type: 'text', text: JSON.stringify({
+            behavior: 'deny',
+            message: 'Permission request timed out after 1 hour — user did not respond',
+          }) }],
         };
       }
 
-      // Poll for permission status
+      // Poll pending permissions
       const pollResponse = await fetch(
         `${CUI_SERVER_URL}/api/permissions?streamingId=${CUI_STREAMING_ID}&status=pending`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
+        { method: 'GET', headers: { 'Content-Type': 'application/json' } },
       );
 
       if (!pollResponse.ok) {
-        logger.error('Failed to poll permission status', { status: pollResponse.status });
         throw new Error(`Failed to poll permission status: ${pollResponse.status}`);
       }
 
@@ -140,76 +256,101 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const permission = permissions.find((p) => p.id === permissionRequestId);
 
       if (!permission) {
-        // Permission has been processed (no longer pending)
-        // Fetch all permissions to find our specific one
-        const allPermissionsResponse = await fetch(
+        // Permission no longer pending — fetch all to get the processed result
+        const allResponse = await fetch(
           `${CUI_SERVER_URL}/api/permissions?streamingId=${CUI_STREAMING_ID}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
+          { method: 'GET', headers: { 'Content-Type': 'application/json' } },
         );
 
-        if (!allPermissionsResponse.ok) {
-          logger.error('Failed to fetch all permissions', { status: allPermissionsResponse.status });
-          throw new Error(`Failed to fetch all permissions: ${allPermissionsResponse.status}`);
+        if (!allResponse.ok) {
+          throw new Error(`Failed to fetch all permissions: ${allResponse.status}`);
         }
 
-        const { permissions: allPermissions } = await allPermissionsResponse.json() as PermissionsResponse;
-        const processedPermission = allPermissions.find((p) => p.id === permissionRequestId);
+        const { permissions: allPermissions } = await allResponse.json() as PermissionsResponse;
+        const processed = allPermissions.find((p) => p.id === permissionRequestId);
 
-        if (processedPermission) {
-          if (processedPermission.status === 'approved') {
+        if (processed) {
+          if (processed.status === 'approved') {
             logger.debug('Permission approved', { tool_name, permissionRequestId });
-            const approvalResponse = {
-              behavior: 'allow',
-              updatedInput: processedPermission.modifiedInput || input,
-            };
             return {
-              content: [{
-                type: 'text',
-                text: JSON.stringify(approvalResponse),
-              }],
+              content: [{ type: 'text', text: JSON.stringify({
+                behavior: 'allow',
+                updatedInput: processed.modifiedInput || input,
+              }) }],
             };
-          } else if (processedPermission.status === 'denied') {
+          } else if (processed.status === 'denied') {
             logger.debug('Permission denied', { tool_name, permissionRequestId });
-            const denyResponse = {
-              behavior: 'deny',
-              message: processedPermission.denyReason || 'The user doesnt want to proceed with this tool use.The tool use was rejected(eg.if it was a file edit, the new_string was NOT written to the file).STOP what you are doing and wait for the user to tell you how to proceed.',
-            };
             return {
-              content: [{
-                type: 'text',
-                text: JSON.stringify(denyResponse),
-              }],
+              content: [{ type: 'text', text: JSON.stringify({
+                behavior: 'deny',
+                message: processed.denyReason || 'The user doesnt want to proceed with this tool use.The tool use was rejected(eg.if it was a file edit, the new_string was NOT written to the file).STOP what you are doing and wait for the user to tell you how to proceed.',
+              }) }],
             };
           }
         }
       }
 
-      // Wait before next poll
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
     }
-    
+
   } catch (error) {
     logger.error('Error processing permission request', { error });
-    
-    // Return a deny response on error
-    const denyResponse = {
-      behavior: 'deny',
-      message: `Permission denied due to error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
-
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify(denyResponse),
-      }],
+      content: [{ type: 'text', text: JSON.stringify({
+        behavior: 'deny',
+        message: `Permission denied due to error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      }) }],
     };
   }
-});
+}
+
+/**
+ * Handle ask_user tool call.
+ * Uses single-record polling via GET /api/questions/:id.
+ */
+async function handleAskUser(args: { questions: unknown[] }): Promise<McpToolResult> {
+  const { questions } = args;
+
+  try {
+    logger.debug('MCP AskUser request received', { questionCount: questions.length, streamingId: CUI_STREAMING_ID });
+
+    const questionId = await sendNotification(
+      `${CUI_SERVER_URL}/api/questions/notify`,
+      {
+        questions,
+        streamingId: CUI_STREAMING_ID || 'unknown',
+      },
+      'AskUser',
+    );
+
+    return await pollUntilResolved<QuestionPollResponse>(
+      `${CUI_SERVER_URL}/api/questions/${questionId}`,
+      (data) => {
+        const question = data.question;
+
+        if (question.status === 'answered' && question.answers) {
+          logger.debug('Question answered', { id: question.id });
+          return {
+            content: [{ type: 'text', text: JSON.stringify({
+              answers: question.answers,
+            }) }],
+          };
+        }
+
+        return null; // Still pending
+      },
+      'AskUser',
+    );
+  } catch (error) {
+    logger.error('Error processing ask_user request', { error });
+    return {
+      content: [{ type: 'text', text: JSON.stringify({
+        error: `AskUser failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        answers: {},
+      }) }],
+    };
+  }
+}
 
 // Start the server
 async function main() {
