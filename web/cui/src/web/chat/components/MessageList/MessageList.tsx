@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { MessageItem } from './MessageItem';
-import type { ChatMessage, ToolResult } from '../../types';
+import { AskUserQuestionCard } from '../AskUserQuestion/AskUserQuestionCard';
+import type { ChatMessage, ToolResult, QuestionRequest } from '../../types';
 
 export interface MessageListProps {
   messages: ChatMessage[];
@@ -10,6 +11,8 @@ export interface MessageListProps {
   onToggleTaskExpanded?: (toolUseId: string) => void;
   isLoading?: boolean;
   isStreaming?: boolean;
+  questionRequest?: QuestionRequest | null;
+  onQuestionAnswered?: () => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({ 
@@ -18,8 +21,10 @@ export const MessageList: React.FC<MessageListProps> = ({
   childrenMessages = {}, 
   expandedTasks = new Set(), 
   onToggleTaskExpanded,
-  isLoading, 
-  isStreaming
+  isLoading,
+  isStreaming,
+  questionRequest,
+  onQuestionAnswered,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -92,6 +97,16 @@ export const MessageList: React.FC<MessageListProps> = ({
           </div>
         ))}
         
+        {/* AskUserQuestion card — rendered after messages */}
+        {questionRequest && onQuestionAnswered && (
+          <div className="px-4 box-border">
+            <AskUserQuestionCard
+              questionRequest={questionRequest}
+              onAnswered={onQuestionAnswered}
+            />
+          </div>
+        )}
+
         {isLoading && displayMessages.length === 0 && (
           <div className="flex items-center justify-center p-8">
             <div className="flex gap-1">

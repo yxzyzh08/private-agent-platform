@@ -72,6 +72,11 @@ function parseArgs() {
           config.allowedTools = args[++i].split(',');
         }
         break;
+      case '--disallowedTools':
+        if (i + 1 < args.length) {
+          i++; // consume the value (e.g. "AskUserQuestion")
+        }
+        break;
       case '--resume':
         config.resume = true;
         if (i + 1 < args.length) {

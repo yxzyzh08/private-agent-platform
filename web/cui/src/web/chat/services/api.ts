@@ -11,6 +11,8 @@ import type {
   FileSystemListQuery,
   FileSystemListResponse,
   CommandsResponse,
+  QuestionRequest,
+  DocsTreeNode,
 } from '../types';
 import { getAuthToken } from '../../hooks/useAuth';
 type GeminiHealthResponse = { status: 'healthy' | 'unhealthy'; message: string; apiKeyValid: boolean };
@@ -267,6 +269,41 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({}),
     });
+  }
+
+  // Docs viewer endpoints
+  async getDocsTree(projectPath: string): Promise<{ tree: DocsTreeNode; truncated?: boolean }> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('projectPath', projectPath);
+    return this.apiCall(`/api/docs/tree?${searchParams}`);
+  }
+
+  async getDocsContent(projectPath: string, filePath: string): Promise<{ content: string; size: number; modifiedAt: string }> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('projectPath', projectPath);
+    searchParams.append('filePath', filePath);
+    return this.apiCall(`/api/docs/content?${searchParams}`);
+  }
+
+  // Question (AskUserQuestion) endpoints
+  async answerQuestion(
+    questionId: string,
+    answers: Record<string, string | string[]>
+  ): Promise<{ success: boolean }> {
+    return this.apiCall(`/api/questions/${questionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+  }
+
+  async getQuestionsByStreamingId(
+    streamingId: string,
+    status?: 'pending' | 'answered'
+  ): Promise<{ questions: QuestionRequest[] }> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('streamingId', streamingId);
+    if (status) searchParams.append('status', status);
+    return this.apiCall(`/api/questions?${searchParams}`);
   }
 
   // For endpoints that need direct fetch with auth (like SSE streams)

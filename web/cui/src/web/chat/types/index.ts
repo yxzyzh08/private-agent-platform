@@ -13,6 +13,9 @@ import type {
   PermissionRequest,
   PermissionDecisionRequest,
   PermissionDecisionResponse,
+  QuestionRequest,
+  Question,
+  QuestionOption,
   FileSystemEntry,
   FileSystemListQuery,
   FileSystemListResponse,
@@ -37,6 +40,9 @@ export type {
   PermissionRequest,
   PermissionDecisionRequest,
   PermissionDecisionResponse,
+  QuestionRequest,
+  Question,
+  QuestionOption,
   FileSystemEntry,
   FileSystemListQuery,
   FileSystemListResponse,
@@ -113,6 +119,16 @@ export interface StreamStatus {
     editCount: number;
     writeCount: number;
   };
+}
+
+// Docs viewer types
+export interface DocsTreeNode {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size?: number;
+  modifiedAt?: string;
+  children?: DocsTreeNode[];
 }
 
 // Extended conversation summary with live status
