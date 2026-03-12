@@ -42,6 +42,7 @@ import { createConfigRoutes } from './routes/config.routes.js';
 import { createGeminiRoutes } from './routes/gemini.routes.js';
 import { createNotificationsRoutes } from './routes/notifications.routes.js';
 import { createPlatformProxyRoutes } from './routes/platform-proxy.routes.js';
+import { createDocsRoutes } from './routes/docs.routes.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { createCorsMiddleware } from './middleware/cors-setup.js';
@@ -499,6 +500,7 @@ export class CUIServer {
     this.app.use('/api/config', createConfigRoutes(this.configService));
     this.app.use('/api/gemini', createGeminiRoutes(geminiService));
     this.app.use('/api/proxy', createPlatformProxyRoutes());
+    this.app.use('/api/docs', createDocsRoutes());
     
     // React Router catch-all - must be after all API routes
     const isDev = process.env.NODE_ENV === 'development';

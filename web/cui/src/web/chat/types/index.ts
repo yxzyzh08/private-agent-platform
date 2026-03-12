@@ -121,6 +121,16 @@ export interface StreamStatus {
   };
 }
 
+// Docs viewer types
+export interface DocsTreeNode {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size?: number;
+  modifiedAt?: string;
+  children?: DocsTreeNode[];
+}
+
 // Extended conversation summary with live status
 export interface ConversationSummaryWithLiveStatus extends ConversationSummary {
   liveStatus?: StreamStatus;

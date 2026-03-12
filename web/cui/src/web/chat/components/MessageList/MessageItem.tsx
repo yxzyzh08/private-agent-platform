@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Copy, Check, Code, Globe, Settings, FileText, Edit, Terminal, Search, List, CheckSquare, ExternalLink, Play, FileEdit, ClipboardList, Maximize2, Minimize2 } from 'lucide-react';
+import { Copy, Check, Code, Globe, Settings, FileText, Edit, Terminal, Search, List, CheckSquare, ExternalLink, Play, FileEdit, ClipboardList, Maximize2, Minimize2, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { JsonViewer } from '../JsonViewer/JsonViewer';
 import { ToolUseRenderer } from '../ToolRendering/ToolUseRenderer';
-import { CodeHighlight } from '../CodeHighlight';
+import { markdownComponents } from '../shared/markdownComponents';
 import type { ChatMessage, ToolResult } from '../../types';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages/messages';
 
@@ -50,29 +50,148 @@ function getToolIcon(toolName: string) {
   }
 }
 
-// Custom components for ReactMarkdown
-const markdownComponents = {
-  code({ node, inline, className, children, ...props }: any) {
-    const match = /language-(\w+)/.exec(className || '');
-    const language = match ? match[1] : 'text';
-    
-    if (!inline && match) {
-      return (
-        <CodeHighlight
-          code={String(children).replace(/\n$/, '')}
-          language={language}
-          className="bg-neutral-900 rounded-md overflow-hidden max-w-full box-border"
-        />
-      );
+// markdownComponents imported from shared module
+
+/** Get the canonical tool group name for merging consecutive calls */
+function getToolGroupName(toolName: string): string {
+  // Map tool names that should be grouped together
+  const groupMap: Record<string, string> = {
+    'Grep': 'Search',
+    'Glob': 'Search',
+    'LS': 'Search',
+    'Edit': 'Edit',
+    'MultiEdit': 'Edit',
+    'TodoRead': 'Todo',
+    'TodoWrite': 'Todo',
+    'WebSearch': 'Web',
+    'WebFetch': 'Web',
+  };
+  return groupMap[toolName] || toolName;
+}
+
+/** Group consecutive content blocks: same-type tool_use blocks are merged */
+interface ContentGroup {
+  type: 'tool_use' | 'other';
+  toolName?: string; // canonical group name for tool_use groups
+  blocks: any[];
+  startIndex: number;
+}
+
+function groupContentBlocks(blocks: any[]): ContentGroup[] {
+  const groups: ContentGroup[] = [];
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    if (block.type === 'tool_use') {
+      const groupName = getToolGroupName(block.name);
+      const lastGroup = groups[groups.length - 1];
+
+      if (lastGroup && lastGroup.type === 'tool_use' && lastGroup.toolName === groupName) {
+        lastGroup.blocks.push(block);
+      } else {
+        groups.push({ type: 'tool_use', toolName: groupName, blocks: [block], startIndex: i });
+      }
+    } else {
+      const lastGroup = groups[groups.length - 1];
+      if (lastGroup && lastGroup.type === 'other') {
+        lastGroup.blocks.push(block);
+      } else {
+        groups.push({ type: 'other', blocks: [block], startIndex: i });
+      }
     }
-    
-    return (
-      <code className={className} {...props}>
-        {children}
-      </code>
-    );
   }
-};
+
+  return groups;
+}
+
+/** Renders a group of consecutive same-type tool calls with a merged summary */
+function ToolGroup({
+  toolName,
+  toolBlocks,
+  toolResults: results,
+  workingDirectory,
+  childrenMessages,
+  expandedTasks,
+  onToggleTaskExpanded,
+  isStreaming,
+}: {
+  toolName: string;
+  toolBlocks: any[];
+  toolResults: Record<string, ToolResult>;
+  workingDirectory?: string;
+  childrenMessages?: Record<string, ChatMessage[]>;
+  expandedTasks?: Set<string>;
+  onToggleTaskExpanded?: (toolUseId: string) => void;
+  isStreaming?: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const count = toolBlocks.length;
+
+  // Check if any tool in group is still loading
+  const anyLoading = toolBlocks.some(b => {
+    const r = results[b.id];
+    return !r || r.status === 'pending';
+  });
+
+  // Generate group summary label
+  const getGroupLabel = (): string => {
+    switch (toolName) {
+      case 'Read': return `Read ${count} files`;
+      case 'Edit': return `${count} edits`;
+      case 'Search': return `${count} searches`;
+      case 'Bash': return `${count} commands`;
+      case 'Write': return `Wrote ${count} files`;
+      case 'Web': return `${count} web requests`;
+      case 'Todo': return `${count} todo operations`;
+      default: return `${count} ${toolName} calls`;
+    }
+  };
+
+  return (
+    <div className="flex gap-2 items-start">
+      <div className={`w-4 h-5 flex-shrink-0 flex items-center justify-center text-foreground relative ${anyLoading && isStreaming ? 'animate-pulse' : ''}`}>
+        {getToolIcon(toolBlocks[0].name)}
+      </div>
+      <div className="flex-1 flex flex-col min-w-0 break-words">
+        {/* Group summary header */}
+        <div
+          className="flex items-center gap-1 cursor-pointer select-none"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <ChevronRight
+            size={12}
+            className={`text-muted-foreground transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+          />
+          <span className="text-sm font-mono text-foreground">
+            <span className="font-semibold">{getGroupLabel()}</span>
+          </span>
+        </div>
+
+        {/* Expanded: show each tool individually */}
+        {isExpanded && (
+          <div className="mt-1 ml-1 flex flex-col gap-2 border-l border-border pl-3">
+            {toolBlocks.map((block: any, i: number) => {
+              const result = results[block.id];
+              return (
+                <ToolUseRenderer
+                  key={block.id}
+                  toolUse={block}
+                  toolResult={result}
+                  toolResults={results}
+                  workingDirectory={workingDirectory}
+                  childrenMessages={childrenMessages}
+                  expandedTasks={expandedTasks}
+                  onToggleTaskExpanded={onToggleTaskExpanded}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function MessageItem({ 
   message, 
@@ -159,50 +278,76 @@ export function MessageItem({
       }
 
       if (Array.isArray(message.content)) {
-        return message.content.map((block: any, index: number) => {
-          const blockId = `${message.messageId}-${index}`;
-          const isLastBlock = index === message.content.length - 1;
+        // Group consecutive same-type tool_use blocks
+        const groups = groupContentBlocks(message.content);
 
-          if (block.type === 'text') {
-            return (
-              <div key={blockId} className="flex gap-2 items-start">
-                <div className="w-4 h-5 flex-shrink-0 flex items-center justify-center text-foreground relative">
-                  <div className="mt-1 w-2.5 h-2.5 bg-foreground rounded-full" />
+        return groups.map((group, groupIndex) => {
+          // Non-tool blocks: render individually
+          if (group.type !== 'tool_use') {
+            return group.blocks.map((block: any, i: number) => {
+              const blockId = `${message.messageId}-${group.startIndex + i}`;
+
+              if (block.type === 'text') {
+                return (
+                  <div key={blockId} className="flex gap-2 items-start">
+                    <div className="w-4 h-5 flex-shrink-0 flex items-center justify-center text-foreground relative">
+                      <div className="mt-1 w-2.5 h-2.5 bg-foreground rounded-full" />
+                    </div>
+                    <div className="flex-1 min-w-0 prose prose-sm max-w-none dark:prose-invert">
+                      <ReactMarkdown components={markdownComponents}>{block.text}</ReactMarkdown>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (block.type === 'thinking') {
+                return (
+                  <details key={blockId} className="mb-1">
+                    <summary className="cursor-pointer text-xs text-muted-foreground italic select-none hover:text-foreground transition-colors">
+                      Thinking
+                    </summary>
+                    <div className="mt-1 flex-1 min-w-0 prose prose-sm max-w-none italic text-muted-foreground dark:prose-invert pl-4 border-l border-muted">
+                      <ReactMarkdown components={markdownComponents}>{block.thinking}</ReactMarkdown>
+                    </div>
+                  </details>
+                );
+              }
+
+              // Default: render as JSON
+              return (
+                <div key={blockId} className="flex gap-2 items-start">
+                  <div className="w-4 h-5 flex-shrink-0 flex items-center justify-center text-foreground relative">
+                    <Code size={15} />
+                  </div>
+                  <div className="flex-1 text-sm leading-relaxed text-foreground min-w-0 break-words">
+                    <JsonViewer data={block} />
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0 prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown components={markdownComponents}>{block.text}</ReactMarkdown>
-                </div>
-              </div>
-            );
+              );
+            });
           }
 
-          if (block.type === 'thinking') {
-            return (
-              <details key={blockId} className="mb-1">
-                <summary className="cursor-pointer text-xs text-muted-foreground italic select-none hover:text-foreground transition-colors">
-                  💭 思考过程
-                </summary>
-                <div className="mt-1 flex-1 min-w-0 prose prose-sm max-w-none italic text-muted-foreground dark:prose-invert pl-4 border-l border-muted">
-                  <ReactMarkdown components={markdownComponents}>{block.thinking}</ReactMarkdown>
-                </div>
-              </details>
-            );
-          }
+          // Tool use group: single tool or multiple consecutive same-type tools
+          const toolBlocks = group.blocks;
+          const toolName = group.toolName!;
+          const groupKey = `${message.messageId}-toolgroup-${groupIndex}`;
 
-          if (block.type === 'tool_use') {
-            const toolResult = toolResults[block.id];
-            const isLoading = !toolResult || toolResult.status === 'pending';
+          if (toolBlocks.length === 1) {
+            // Single tool: render directly (ToolUseRenderer handles its own collapse)
+            const block = toolBlocks[0];
+            const result = toolResults[block.id];
+            const isLoading = !result || result.status === 'pending';
             const shouldBlink = isLoading && isStreaming;
-            
+
             return (
-              <div key={blockId} className="flex gap-2 items-start">
+              <div key={groupKey} className="flex gap-2 items-start">
                 <div className={`w-4 h-5 flex-shrink-0 flex items-center justify-center text-foreground relative ${shouldBlink ? 'animate-pulse' : ''}`}>
                   {getToolIcon(block.name)}
                 </div>
                 <div className="flex-1 flex flex-col gap-2 min-w-0 break-words">
                   <ToolUseRenderer
                     toolUse={block}
-                    toolResult={toolResult}
+                    toolResult={result}
                     toolResults={toolResults}
                     workingDirectory={message.workingDirectory}
                     childrenMessages={childrenMessages}
@@ -214,16 +359,19 @@ export function MessageItem({
             );
           }
 
-          // Default: render as JSON
+          // Multiple consecutive same-type tools: render as collapsed group
           return (
-            <div key={blockId} className="flex gap-2 items-start">
-              <div className="w-4 h-5 flex-shrink-0 flex items-center justify-center text-foreground relative">
-                <Code size={15} />
-              </div>
-              <div className="flex-1 text-sm leading-relaxed text-foreground min-w-0 break-words">
-                <JsonViewer data={block} />
-              </div>
-            </div>
+            <ToolGroup
+              key={groupKey}
+              toolName={toolName}
+              toolBlocks={toolBlocks}
+              toolResults={toolResults}
+              workingDirectory={message.workingDirectory}
+              childrenMessages={childrenMessages}
+              expandedTasks={expandedTasks}
+              onToggleTaskExpanded={onToggleTaskExpanded}
+              isStreaming={isStreaming}
+            />
           );
         });
       }

@@ -12,6 +12,7 @@ import type {
   FileSystemListResponse,
   CommandsResponse,
   QuestionRequest,
+  DocsTreeNode,
 } from '../types';
 import { getAuthToken } from '../../hooks/useAuth';
 type GeminiHealthResponse = { status: 'healthy' | 'unhealthy'; message: string; apiKeyValid: boolean };
@@ -268,6 +269,20 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({}),
     });
+  }
+
+  // Docs viewer endpoints
+  async getDocsTree(projectPath: string): Promise<{ tree: DocsTreeNode; truncated?: boolean }> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('projectPath', projectPath);
+    return this.apiCall(`/api/docs/tree?${searchParams}`);
+  }
+
+  async getDocsContent(projectPath: string, filePath: string): Promise<{ content: string; size: number; modifiedAt: string }> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('projectPath', projectPath);
+    searchParams.append('filePath', filePath);
+    return this.apiCall(`/api/docs/content?${searchParams}`);
   }
 
   // Question (AskUserQuestion) endpoints
