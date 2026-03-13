@@ -27,7 +27,7 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex items-center justify-between p-3 h-[60px] bg-background font-semibold">
+      <header className="sticky top-0 z-20 flex items-center justify-between p-2 md:p-3 h-12 md:h-[60px] bg-background font-semibold">
         <div className="relative flex items-center justify-between w-full px-1 py-3">
           {/* Navigation */}
           <nav className="flex items-center gap-2 ml-auto">

@@ -70,9 +70,9 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto bg-background" ref={containerRef}>
-      <div className="flex flex-col py-6 max-w-3xl mx-auto w-full box-border">
+      <div className="flex flex-col py-3 md:py-6 max-w-3xl mx-auto w-full box-border">
         {messageGroups.map((group, groupIndex) => (
-          <div key={`group-${groupIndex}`} className="flex flex-col gap-2 px-4 box-border">
+          <div key={`group-${groupIndex}`} className="flex flex-col gap-2 px-2 md:px-4 box-border">
             {group.messages.map((message, messageIndex) => (
               <MessageItem 
                 key={message.messageId} 

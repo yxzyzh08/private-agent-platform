@@ -158,7 +158,7 @@ export function RequirementPanel({
     totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
   return (
-    <div className="w-80 border-l border-border bg-background flex flex-col h-full overflow-hidden">
+    <div className="w-full md:w-80 border-l-0 md:border-l border-border bg-background flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">Execution Progress</h3>

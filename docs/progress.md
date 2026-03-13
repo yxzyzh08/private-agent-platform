@@ -10,11 +10,11 @@
 
 | 项目 | 状态 |
 |------|------|
-| **当前 Phase** | Phase 1H: CUI 项目文档查看器 ✅ |
+| **当前 Phase** | Phase 1I: CUI 手机屏幕适配 ✅ |
 | **当前任务** | 完成 — 准备下一 Phase |
-| **工作分支** | `feat/phase-1h-docs-viewer` |
-| **总测试数** | 421 (Python) + 412 (TypeScript) |
-| **最新 Tag** | `v0.8.0` |
+| **工作分支** | `feat/phase-1i-mobile-adaptation` |
+| **总测试数** | 421 (Python) + 416 (TypeScript) |
+| **最新 Tag** | `v0.9.0` |
 | **阻塞项** | 无 |
 
 ### Resume Instructions
@@ -47,6 +47,7 @@
 | Phase 1F | CUI UI 优化 — 移除 History Tab + 批量操作增强 | ✅ 完成 | 6/6 | [phase-1f.md](phases/phase-1f.md) |
 | Phase 1G | CUI AskUserQuestion 交互支持 | ✅ 完成 | 13/13 | [phase-1g.md](phases/phase-1g.md) |
 | Phase 1H | CUI 项目文档查看器 | ✅ 完成 | 11/11 | [phase-1h.md](phases/phase-1h.md) |
+| Phase 1I | CUI 手机屏幕适配 | ✅ 完成 | 8/8 | [phase-1i.md](phases/phase-1i.md) |
 | Phase 2 | 知识库机器人 | ⚪ 未开始 | 0/11 | [phase-2.md](phases/phase-2.md) |
 | Phase 3 | 客服机器人 | ⚪ 未开始 | 0/9 | [phase-3.md](phases/phase-3.md) |
 | Phase 4 | 营销机器人 | ⚪ 未开始 | 0/12 | [phase-4.md](phases/phase-4.md) |
@@ -74,6 +75,7 @@
 | **Phase 1F 完成** | **421+317** | **421+317** | **Task 1F.6 文档同步 + Git Tag v0.6.0 (Python 421 + TypeScript 317)** |
 | **Phase 1G 完成** | **421+388** | **421+388** | **Task 1G.13 文档同步 + Git Tag v0.7.0 (Python 421 + TypeScript 388)** |
 | **Phase 1H 完成** | **421+412** | **421+412** | **Task 1H.11 文档同步 + Git Tag v0.8.0 (Python 421 + TypeScript 412)** |
+| **Phase 1I 完成** | **421+416** | **421+416** | **Task 1I.8 文档同步 + Git Tag v0.9.0 (Python 421 + TypeScript 416)** |
 
 ---
 

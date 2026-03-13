@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Archive, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { Button } from '@/web/chat/components/ui/button';
 import { Input } from '@/web/chat/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/web/chat/components/ui/tooltip';
@@ -27,6 +28,7 @@ interface ConversationHeaderProps {
 
 export function ConversationHeader({ title, sessionId, isArchived = false, isPinned = false, subtitle, onTitleUpdate, onPinToggle }: ConversationHeaderProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [isRenaming, setIsRenaming] = useState(false);
   const [newTitle, setNewTitle] = useState(title);
   const [localTitle, setLocalTitle] = useState(title);
@@ -135,7 +137,7 @@ export function ConversationHeader({ title, sessionId, isArchived = false, isPin
                   </Button>
                 </div>
               ) : (
-                <span className="font-medium text-sm text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                <span className="font-medium text-sm text-foreground overflow-hidden text-ellipsis whitespace-nowrap max-w-[50vw] md:max-w-none">
                   {localTitle}
                 </span>
               )}
@@ -148,10 +150,10 @@ export function ConversationHeader({ title, sessionId, isArchived = false, isPin
                 {subtitle.repo && (
                   <span className="overflow-hidden text-ellipsis whitespace-nowrap">{subtitle.repo}</span>
                 )}
-                {subtitle.commitSHA && (
+                {!isMobile && subtitle.commitSHA && (
                   <span className="overflow-hidden text-ellipsis whitespace-nowrap">{subtitle.commitSHA.slice(0, 7)}</span>
                 )}
-                {subtitle.changes && (
+                {!isMobile && subtitle.changes && (
                   <span className="flex gap-2 font-medium">
                     <span className="text-green-600">+{subtitle.changes.additions}</span>
                     <span className="text-red-600">-{subtitle.changes.deletions}</span>

@@ -135,7 +135,7 @@ export function Home() {
         <div className="flex flex-col h-full w-full">
           <div className="z-0 mx-auto flex flex-col w-full max-w-3xl h-full">
             <div className="sticky top-0 z-50 flex flex-col items-center bg-background">
-              <div className="flex items-center gap-3 mb-4 pt-4">
+              <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4 pt-3 md:pt-4">
                 <div className="flex items-center">
                   <div className="w-[27px] h-[27px] flex items-center justify-center">
                     <svg width="24" height="24" viewBox="4.5 5.2 11.7 13.3" fill="currentColor">
@@ -149,7 +149,7 @@ export function Home() {
                     </svg>
                   </div>
                 </div>
-                <h1 className="text-2xl font-semibold font-sans text-foreground">What is the next task?</h1>
+                <h1 className="text-xl md:text-2xl font-semibold font-sans text-foreground">What is the next task?</h1>
               </div>
               
               <div className="w-full">

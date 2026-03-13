@@ -332,7 +332,7 @@ export const DropdownSelector = forwardRef<HTMLDivElement, DropdownSelectorProps
         </PopoverTrigger>
           <PopoverContent
             className={cn(
-              "w-80 p-0 rounded-[18px] border border-black/15 bg-white shadow-lg",
+              "w-[calc(100vw-2rem)] md:w-80 p-0 rounded-[18px] border border-black/15 bg-white shadow-lg",
               "dark:border-white/10 dark:bg-neutral-900 dark:shadow-2xl",
               dropdownClassName
             )}

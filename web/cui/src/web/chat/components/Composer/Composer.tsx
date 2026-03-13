@@ -853,7 +853,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(function Composer
     >
       <div className="flex flex-col items-center justify-center w-full bg-transparent border border-border rounded-3xl shadow-sm cursor-text transition-all duration-300">
         <div className="relative flex items-end w-full min-h-[73px]">
-          <div className="relative flex flex-1 items-start mx-5 min-h-[73px]">
+          <div className="relative flex flex-1 items-start mx-3 md:mx-5 min-h-[73px]">
             {audioState === 'recording' || audioState === 'processing' ? (
               <div className="w-full min-h-[80px] pb-[34px] bg-transparent overflow-hidden flex items-center justify-start">
                 <WaveformVisualizer
@@ -890,7 +890,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(function Composer
           </div>
 
           {(showDirectorySelector || showModelSelector) && audioState === 'idle' && (
-            <div className="absolute bottom-2 left-6 right-10 flex items-center justify-center overflow-visible">
+            <div className="absolute bottom-2 left-3 md:left-6 right-10 flex items-center justify-center overflow-visible">
               <div className="flex gap-2 w-full justify-between">
                 <div className="flex gap-2">
                   {/* Working Directory Selector */}

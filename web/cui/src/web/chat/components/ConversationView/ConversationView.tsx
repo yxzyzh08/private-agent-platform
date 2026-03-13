@@ -356,7 +356,7 @@ export function ConversationView() {
       />
 
       <div 
-        className="sticky bottom-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm z-10 w-full flex justify-center px-2 pb-6"
+        className="sticky bottom-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm z-10 w-full flex justify-center px-1 md:px-2 pb-3 md:pb-6"
         aria-label="Message composer section"
       >
         <div className="w-full max-w-3xl">
