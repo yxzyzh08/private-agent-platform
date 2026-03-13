@@ -31,11 +31,11 @@
 > 1. 更新 `docs/progress.md`（Quick Status 当前任务、进度、测试数）
 > 2. Commit 代码 + 文档
 >
-> **涉及 CUI 前端改动时（研发模式，宿主机直接运行）：**
+> **涉及 CUI 前端改动时（研发模式，CUI 由 systemctl 管理）：**
 > ```bash
-> cd web/cui && npm run build && npm start
+> cd web/cui && npm run build && sudo systemctl restart cui
 > ```
-> 如使用 `npm run dev` 开发模式，前端改动自动热更新，无需手动重启。
+> 如使用 `npm run dev` 开发模式，需先 `sudo systemctl stop cui` 停止服务避免端口冲突，前端改动自动热更新。
 > 验证：浏览器 Ctrl+Shift+R 强制刷新，确认改动生效。
 >
 > 完整部署说明见 [`docs/deployment.md`](docs/deployment.md)。
@@ -77,8 +77,9 @@ docs/phases/phase-N.md       ← Tier 3: 当前Phase详细任务（输入/输出
 | Lint 检查 | `uv run ruff check .` |
 | 格式化代码 | `uv run ruff format .` |
 | Redis 启动 | `docker-compose up -d redis` |
-| 启动 CUI (研发) | `cd web/cui && npm run dev` |
-| CUI 构建+启动 | `cd web/cui && npm run build && npm start` |
+| 启动 CUI (研发) | `sudo systemctl stop cui && cd web/cui && npm run dev` |
+| CUI 构建+重启 | `cd web/cui && npm run build && sudo systemctl restart cui` |
+| CUI 状态 | `sudo systemctl status cui` |
 | Docker 全量启动 (生产) | `docker-compose up -d` |
 | Docker 查看日志 | `docker-compose logs -f` |
 | 检查配置 | `uv run python -c "import yaml; yaml.safe_load(open('config/platform.yaml')); print('OK')"` |

@@ -13,7 +13,7 @@
 ```
 宿主机
 ├── Platform (FastAPI)       → localhost:8000  ← uv run python main.py
-├── CUI (Node.js)            → localhost:3001  ← cd web/cui && npm start
+├── CUI (Node.js)            → localhost:3001  ← systemctl 管理（cui.service）
 └── Docker
     └── Redis                → localhost:6379  ← docker-compose up -d redis
 ```
@@ -27,21 +27,42 @@ docker-compose up -d redis
 # 2. 启动 Platform（宿主机）
 uv run python main.py
 
-# 3. 启动 CUI（宿主机）
-cd web/cui && npm start
+# 3. CUI 由 systemctl 管理，通常已自动运行
+sudo systemctl start cui
+```
+
+### CUI 服务管理（systemctl）
+
+CUI 通过 systemd 服务管理，服务文件位于 `/etc/systemd/system/cui.service`。
+
+```bash
+# 查看状态
+sudo systemctl status cui
+
+# 启动 / 停止 / 重启
+sudo systemctl start cui
+sudo systemctl stop cui
+sudo systemctl restart cui
+
+# 查看日志
+journalctl -u cui -f
+```
+
+**前端改动后必须重新构建并重启服务：**
+
+```bash
+cd web/cui && npm run build && sudo systemctl restart cui
 ```
 
 ### CUI 开发热重载
 
 ```bash
-# 开发模式（自动重启后端 + 前端热更新）
+# 开发模式（自动重启后端 + 前端热更新）— 需先停止 systemctl 服务避免端口冲突
+sudo systemctl stop cui
 cd web/cui && npm run dev
 
-# 仅重新构建前端
-cd web/cui && npm run build
-
-# 生产模式启动
-cd web/cui && npm start
+# 开发完成后切回 systemctl 管理
+cd web/cui && npm run build && sudo systemctl start cui
 ```
 
 ### 停止服务
@@ -50,7 +71,9 @@ cd web/cui && npm start
 # 停止 Redis
 docker-compose stop redis
 
-# Platform 和 CUI：直接 Ctrl+C 终止终端进程
+# 停止 Platform：Ctrl+C 终止终端进程
+# 停止 CUI
+sudo systemctl stop cui
 ```
 
 ---

@@ -20,16 +20,22 @@ function TreeNode({ node, depth, selectedFile, onSelectFile, defaultExpanded = f
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   if (node.type === 'directory') {
+    const handleToggle = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIsExpanded(prev => !prev);
+    };
+
     return (
       <div>
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          type="button"
+          onClick={handleToggle}
           className="w-full flex items-center gap-1 py-1 px-1 rounded text-sm hover:bg-accent text-foreground transition-colors"
           style={{ paddingLeft: `${depth * 16 + 4}px` }}
         >
           <ChevronRight
             size={12}
-            className={`text-muted-foreground transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+            className={`text-muted-foreground transition-transform duration-150 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
           />
           {isExpanded ? (
             <FolderOpen size={14} className="text-amber-500 flex-shrink-0" />
@@ -59,6 +65,7 @@ function TreeNode({ node, depth, selectedFile, onSelectFile, defaultExpanded = f
 
   return (
     <button
+      type="button"
       onClick={() => onSelectFile(node.path)}
       className={`w-full flex items-center gap-1 py-1 px-1 rounded text-sm transition-colors ${
         isSelected

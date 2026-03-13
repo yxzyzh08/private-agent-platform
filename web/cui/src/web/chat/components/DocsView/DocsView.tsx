@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Clock } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from '../../services/api';
 import { DocsSidebar } from './DocsSidebar';
 import { DocsContent } from './DocsContent';
@@ -36,6 +36,7 @@ export function DocsView() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [fileMeta, setFileMeta] = useState<{ size?: number; modifiedAt?: string }>({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Load tree when project path changes
   useEffect(() => {
@@ -238,7 +239,7 @@ export function DocsView() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-[220px] flex-shrink-0 overflow-hidden">
+        <div className={`flex-shrink-0 overflow-hidden transition-[width] duration-200 ${sidebarCollapsed ? 'w-0' : 'w-[220px]'}`}>
           {treeData && (
             <DocsSidebar
               treeData={treeData}
@@ -246,6 +247,17 @@ export function DocsView() {
               onSelectFile={handleSelectFile}
             />
           )}
+        </div>
+        {/* Sidebar toggle */}
+        <div className="flex-shrink-0 border-r border-border flex flex-col items-center pt-2">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(prev => !prev)}
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
         </div>
 
         {/* Content area */}
