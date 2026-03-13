@@ -224,7 +224,7 @@ export function ConversationView() {
       const response = await api.startConversation({
         resumedSessionId: sessionId,
         initialPrompt: message,
-        workingDirectory: workingDirectory || currentWorkingDirectory,
+        workingDirectory: conversationSummary?.projectPath || workingDirectory || currentWorkingDirectory,
         model,
         permissionMode
       });

@@ -26,7 +26,7 @@ export function Layout({ children }: LayoutProps) {
   }, [closePanel]);
 
   return (
-    <div className="flex w-full h-screen overflow-hidden bg-background relative">
+    <div className="flex w-full h-dvh overflow-hidden bg-background relative">
       <main className="flex-1 flex flex-col overflow-hidden h-full">
         {children}
       </main>

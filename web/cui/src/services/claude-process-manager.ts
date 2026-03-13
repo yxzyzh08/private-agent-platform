@@ -172,11 +172,11 @@ export class ClaudeProcessManager extends EventEmitter {
       env: (() => { const env = { ...process.env, ...this.envOverrides }; delete env.CLAUDECODE; return env; })() as NodeJS.ProcessEnv
     };
     
-    this.logger.debug('Spawn config prepared', {
-      executablePath: spawnConfig.executablePath,
+    this.logger.info('Spawn config prepared', {
       cwd: spawnConfig.cwd,
-      hasEnvOverrides: Object.keys(this.envOverrides).length > 0,
-      envOverrideKeys: Object.keys(this.envOverrides),
+      configWorkingDirectory: config.workingDirectory,
+      resolvedWorkingDirectory: workingDirectory,
+      fallbackCwd: process.cwd(),
       isResume
     });
     
@@ -389,14 +389,30 @@ export class ClaudeProcessManager extends EventEmitter {
 
         // Validate that the first non-hook message is a system init message
         if (!message || message.type !== 'system' || !('subtype' in message) || message.subtype !== 'init') {
+          // Extract actual error details from Claude CLI result messages
+          let errorDetail = '';
+          if (message && message.type === 'result' && 'subtype' in message) {
+            const resultMsg = message as unknown as Record<string, unknown>;
+            errorDetail = (resultMsg.error as string) || (resultMsg.result as string) || '';
+            if (typeof errorDetail === 'object') {
+              errorDetail = JSON.stringify(errorDetail);
+            }
+          }
+
           this.logger.error('First non-hook message is not system init', {
             streamingId,
             actualType: message?.type,
             actualSubtype: 'subtype' in message ? message.subtype : undefined,
             expectedType: 'system',
-            expectedSubtype: 'init'
+            expectedSubtype: 'init',
+            errorDetail: errorDetail || undefined,
+            fullMessage: JSON.stringify(message).substring(0, 2000)
           });
-          reject(new CUIError('INVALID_SYSTEM_INIT', `Expected system init message as first message, but got: ${message?.type}/${'subtype' in message ? message.subtype : 'undefined'}`, 500));
+
+          const userMessage = errorDetail
+            ? `Claude CLI error: ${errorDetail}`
+            : `Expected system init message as first message, but got: ${message?.type}/${'subtype' in message ? message.subtype : 'undefined'}`;
+          reject(new CUIError('INVALID_SYSTEM_INIT', userMessage, 500));
           return;
         }
 
