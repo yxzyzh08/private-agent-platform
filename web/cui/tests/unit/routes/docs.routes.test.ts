@@ -47,9 +47,12 @@ describe('Docs Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.tree).toBeDefined();
-      expect(res.body.tree.name).toBe('docs');
+      expect(res.body.tree.name).toBe('project');
       expect(res.body.tree.type).toBe('directory');
-      expect(res.body.tree.children).toHaveLength(2); // phases dir + readme.md
+      // Root children: docs/ directory (which has phases + readme)
+      const docsNode = res.body.tree.children.find((c: any) => c.name === 'docs');
+      expect(docsNode).toBeDefined();
+      expect(docsNode.children).toHaveLength(2); // phases dir + readme.md
     });
 
     it('should only return .md files', async () => {
@@ -62,9 +65,9 @@ describe('Docs Routes', () => {
         .query({ projectPath: tmpDir });
 
       expect(res.status).toBe(200);
-      const files = res.body.tree.children;
-      expect(files).toHaveLength(1);
-      expect(files[0].name).toBe('readme.md');
+      const docsNode = res.body.tree.children.find((c: any) => c.name === 'docs');
+      expect(docsNode.children).toHaveLength(1);
+      expect(docsNode.children[0].name).toBe('readme.md');
     });
 
     it('should filter empty directories (no .md files)', async () => {
@@ -77,12 +80,13 @@ describe('Docs Routes', () => {
         .query({ projectPath: tmpDir });
 
       expect(res.status).toBe(200);
+      const docsNode = res.body.tree.children.find((c: any) => c.name === 'docs');
       // Only readme.md, no empty-dir
-      expect(res.body.tree.children).toHaveLength(1);
-      expect(res.body.tree.children[0].name).toBe('readme.md');
+      expect(docsNode.children).toHaveLength(1);
+      expect(docsNode.children[0].name).toBe('readme.md');
     });
 
-    it('should return 404 when docs/ does not exist', async () => {
+    it('should return 404 when no docs/ and no root .md files', async () => {
       const noDocs = await fs.mkdtemp(path.join(os.tmpdir(), 'nodocs-'));
       try {
         const res = await request(app)
@@ -92,6 +96,45 @@ describe('Docs Routes', () => {
       } finally {
         await fs.rm(noDocs, { recursive: true, force: true });
       }
+    });
+
+    it('should return root .md files even without docs/ directory', async () => {
+      const noDocsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'rootmd-'));
+      try {
+        await fs.writeFile(path.join(noDocsDir, 'README.md'), '# Root README');
+        await fs.writeFile(path.join(noDocsDir, 'CLAUDE.md'), '# Claude');
+
+        const res = await request(app)
+          .get('/api/docs/tree')
+          .query({ projectPath: noDocsDir });
+
+        expect(res.status).toBe(200);
+        expect(res.body.tree.children).toHaveLength(2);
+        expect(res.body.tree.children[0].name).toBe('CLAUDE.md');
+        expect(res.body.tree.children[1].name).toBe('README.md');
+        // Root .md file paths should not have docs/ prefix
+        expect(res.body.tree.children[0].path).toBe('CLAUDE.md');
+      } finally {
+        await fs.rm(noDocsDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should include both docs/ subtree and root .md files', async () => {
+      await fs.writeFile(path.join(docsDir, 'guide.md'), '# Guide');
+      await fs.writeFile(path.join(tmpDir, 'README.md'), '# Root README');
+
+      const res = await request(app)
+        .get('/api/docs/tree')
+        .query({ projectPath: tmpDir });
+
+      expect(res.status).toBe(200);
+      const children = res.body.tree.children;
+      // docs/ directory first, then root .md files
+      const docsNode = children.find((c: any) => c.name === 'docs');
+      const rootFile = children.find((c: any) => c.name === 'README.md');
+      expect(docsNode).toBeDefined();
+      expect(rootFile).toBeDefined();
+      expect(rootFile.path).toBe('README.md');
     });
 
     it('should return 400 when projectPath is missing', async () => {
@@ -113,7 +156,7 @@ describe('Docs Routes', () => {
       expect(res.status).toBe(400);
     });
 
-    it('should sort directories before files', async () => {
+    it('should sort directories before files within docs/', async () => {
       await fs.writeFile(path.join(docsDir, 'zebra.md'), '# Zebra');
       await fs.mkdir(path.join(docsDir, 'alpha'), { recursive: true });
       await fs.writeFile(path.join(docsDir, 'alpha', 'content.md'), '# Alpha');
@@ -123,7 +166,8 @@ describe('Docs Routes', () => {
         .query({ projectPath: tmpDir });
 
       expect(res.status).toBe(200);
-      const children = res.body.tree.children;
+      const docsNode = res.body.tree.children.find((c: any) => c.name === 'docs');
+      const children = docsNode.children;
       expect(children[0].type).toBe('directory');
       expect(children[0].name).toBe('alpha');
       expect(children[1].type).toBe('file');
@@ -141,8 +185,9 @@ describe('Docs Routes', () => {
         .query({ projectPath: tmpDir });
 
       expect(res.status).toBe(200);
-      expect(res.body.tree.children).toHaveLength(1);
-      expect(res.body.tree.children[0].name).toBe('visible.md');
+      const docsNode = res.body.tree.children.find((c: any) => c.name === 'docs');
+      expect(docsNode.children).toHaveLength(1);
+      expect(docsNode.children[0].name).toBe('visible.md');
     });
 
     it('should include file metadata (size, modifiedAt)', async () => {
@@ -153,7 +198,8 @@ describe('Docs Routes', () => {
         .query({ projectPath: tmpDir });
 
       expect(res.status).toBe(200);
-      const file = res.body.tree.children[0];
+      const docsNode = res.body.tree.children.find((c: any) => c.name === 'docs');
+      const file = docsNode.children[0];
       expect(file.size).toBeGreaterThan(0);
       expect(file.modifiedAt).toBeDefined();
     });
@@ -208,12 +254,24 @@ describe('Docs Routes', () => {
       expect(res.status).toBe(403);
     });
 
-    it('should reject files not starting with docs/', async () => {
+    it('should reject files in non-docs subdirectories', async () => {
       const res = await request(app)
         .get('/api/docs/content')
-        .query({ projectPath: tmpDir, filePath: 'src/main.ts' });
+        .query({ projectPath: tmpDir, filePath: 'src/main.md' });
 
       expect(res.status).toBe(403);
+    });
+
+    it('should allow reading root-level .md files', async () => {
+      const content = '# Root README';
+      await fs.writeFile(path.join(tmpDir, 'README.md'), content);
+
+      const res = await request(app)
+        .get('/api/docs/content')
+        .query({ projectPath: tmpDir, filePath: 'README.md' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.content).toBe(content);
     });
 
     it('should reject non-.md files', async () => {

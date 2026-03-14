@@ -176,8 +176,8 @@ export function DocsView() {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center text-muted-foreground">
           <FileText size={48} className="mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-medium">No docs/ directory</p>
-          <p className="text-sm mt-1">This project does not have a docs/ directory</p>
+          <p className="text-lg font-medium">No markdown files found</p>
+          <p className="text-sm mt-1">This project has no .md files in root or docs/ directory</p>
           <button
             onClick={() => navigate('/')}
             className="mt-4 px-4 py-2 rounded bg-primary text-primary-foreground text-sm hover:opacity-90"

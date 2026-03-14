@@ -58,11 +58,14 @@ export function createDocsRoutes(): Router {
     if (decoded.includes('..')) {
       throw new CUIError('PATH_TRAVERSAL', `Access denied: ${filePath}`, 403);
     }
-    if (!decoded.startsWith('docs/')) {
-      throw new CUIError('INVALID_PATH', `Access denied: ${filePath}`, 403);
-    }
     if (!decoded.endsWith('.md')) {
       throw new CUIError('INVALID_FILE_TYPE', `Only .md files are supported: ${filePath}`, 403);
+    }
+    // Allow docs/ subtree and root-level .md files (no subdirectory)
+    const isDocsPath = decoded.startsWith('docs/');
+    const isRootMd = !decoded.includes('/');
+    if (!isDocsPath && !isRootMd) {
+      throw new CUIError('INVALID_PATH', `Access denied: ${filePath}`, 403);
     }
     return decoded;
   }
@@ -150,6 +153,37 @@ export function createDocsRoutes(): Router {
     };
   }
 
+  // Scan root-level .md files (non-recursive)
+  async function scanRootMdFiles(projectPath: string): Promise<DocsTreeNode[]> {
+    const files: DocsTreeNode[] = [];
+    let entries;
+    try {
+      entries = await fs.readdir(projectPath, { withFileTypes: true });
+    } catch {
+      return files;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        try {
+          const stat = await fs.stat(path.join(projectPath, entry.name));
+          files.push({
+            name: entry.name,
+            path: entry.name,
+            type: 'file',
+            size: stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+          });
+        } catch {
+          // Skip files we can't stat
+        }
+      }
+    }
+    files.sort((a, b) => a.name.localeCompare(b.name));
+    return files;
+  }
+
   // GET /api/docs/tree — Get document directory tree
   router.get('/tree', async (req: Request & RequestWithRequestId, res: Response, next: NextFunction) => {
     const requestId = req.requestId;
@@ -159,32 +193,52 @@ export function createDocsRoutes(): Router {
 
       logger.debug('Docs tree request', { requestId, projectPath });
 
+      // Scan root-level .md files
+      const rootMdFiles = await scanRootMdFiles(projectPath);
+
+      // Scan docs/ directory (may not exist)
+      let docsResult: TreeScanResult = { node: null, fileCount: 0, truncated: false };
+      let docsExists = false;
       try {
-        await fs.access(docsPath);
+        const stat = await fs.stat(docsPath);
+        if (stat.isDirectory()) {
+          docsExists = true;
+          docsResult = await scanDirectory(docsPath, '', 0, 0);
+        }
       } catch {
-        throw new CUIError('NOT_FOUND', 'docs/ directory does not exist', 404);
+        // docs/ doesn't exist — that's fine
       }
 
-      const stat = await fs.stat(docsPath);
-      if (!stat.isDirectory()) {
-        throw new CUIError('NOT_FOUND', 'docs/ is not a directory', 404);
+      // If neither root md files nor docs/ exist, return 404
+      if (rootMdFiles.length === 0 && !docsExists) {
+        throw new CUIError('NOT_FOUND', 'No markdown files found', 404);
       }
 
-      const result = await scanDirectory(docsPath, '', 0, 0);
+      // Build combined tree: root node contains root .md files + docs/ subtree
+      const children: DocsTreeNode[] = [];
 
-      const tree = result.node || {
-        name: 'docs',
-        path: 'docs',
-        type: 'directory' as const,
-        children: [],
+      // Add docs/ subtree first (if it has content)
+      if (docsResult.node && docsResult.node.children && docsResult.node.children.length > 0) {
+        children.push(docsResult.node);
+      }
+
+      // Add root-level .md files
+      children.push(...rootMdFiles);
+
+      const tree: DocsTreeNode = {
+        name: 'project',
+        path: '',
+        type: 'directory',
+        children,
       };
 
+      const totalFileCount = docsResult.fileCount + rootMdFiles.length;
       const response: { tree: DocsTreeNode; truncated?: boolean } = { tree };
-      if (result.truncated) {
+      if (docsResult.truncated) {
         response.truncated = true;
       }
 
-      logger.debug('Docs tree built', { requestId, fileCount: result.fileCount, truncated: result.truncated });
+      logger.debug('Docs tree built', { requestId, fileCount: totalFileCount, truncated: docsResult.truncated });
       res.json(response);
     } catch (error) {
       next(error);
@@ -202,8 +256,6 @@ export function createDocsRoutes(): Router {
 
       const absolutePath = path.resolve(projectPath, filePath);
 
-      // Final defense: realpath must be within <projectPath>/docs/
-      const docsDir = path.join(projectPath, 'docs');
       let realPath: string;
       try {
         realPath = await fs.realpath(absolutePath);
@@ -211,16 +263,33 @@ export function createDocsRoutes(): Router {
         throw new CUIError('NOT_FOUND', `File not found: ${filePath}`, 404);
       }
 
-      let realDocsDir: string;
+      let realProjectDir: string;
       try {
-        realDocsDir = await fs.realpath(docsDir);
+        realProjectDir = await fs.realpath(projectPath);
       } catch {
-        throw new CUIError('NOT_FOUND', 'docs/ directory does not exist', 404);
+        throw new CUIError('NOT_FOUND', 'Project directory does not exist', 404);
       }
 
-      if (!realPath.startsWith(realDocsDir + path.sep) && realPath !== realDocsDir) {
-        logger.warn('Path traversal attempt detected', { requestId, filePath });
-        throw new CUIError('PATH_TRAVERSAL', `Access denied: ${filePath}`, 403);
+      // Root-level .md files: must be directly in project root
+      const isRootMd = !filePath.includes('/');
+      if (isRootMd) {
+        if (path.dirname(realPath) !== realProjectDir) {
+          logger.warn('Path traversal attempt detected', { requestId, filePath });
+          throw new CUIError('PATH_TRAVERSAL', `Access denied: ${filePath}`, 403);
+        }
+      } else {
+        // docs/ subtree: realpath must be within <projectPath>/docs/
+        const docsDir = path.join(projectPath, 'docs');
+        let realDocsDir: string;
+        try {
+          realDocsDir = await fs.realpath(docsDir);
+        } catch {
+          throw new CUIError('NOT_FOUND', 'docs/ directory does not exist', 404);
+        }
+        if (!realPath.startsWith(realDocsDir + path.sep) && realPath !== realDocsDir) {
+          logger.warn('Path traversal attempt detected', { requestId, filePath });
+          throw new CUIError('PATH_TRAVERSAL', `Access denied: ${filePath}`, 403);
+        }
       }
 
       const stat = await fs.stat(realPath);

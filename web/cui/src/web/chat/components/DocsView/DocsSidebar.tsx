@@ -84,13 +84,16 @@ export function DocsSidebar({ treeData, selectedFile, onSelectFile }: DocsSideba
   return (
     <div className="h-full overflow-y-auto py-2 border-r border-border">
       {treeData.children && treeData.children.length > 0 ? (
-        <TreeNode
-          node={treeData}
-          depth={0}
-          selectedFile={selectedFile}
-          onSelectFile={onSelectFile}
-          defaultExpanded={true}
-        />
+        treeData.children.map((child) => (
+          <TreeNode
+            key={child.path}
+            node={child}
+            depth={0}
+            selectedFile={selectedFile}
+            onSelectFile={onSelectFile}
+            defaultExpanded={child.type === 'directory'}
+          />
+        ))
       ) : (
         <div className="p-4 text-sm text-muted-foreground">No documents found</div>
       )}
